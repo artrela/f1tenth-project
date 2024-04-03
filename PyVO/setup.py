@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-   name='VisualOdom',
+   name='PyVO',
    version='1.0',
    description='A prototype visual odometry package',
    author='Alec Trela & Sridvei Kaza',

@@ -26,19 +26,22 @@ class VisualOdometry(Node):
         """
         """
 
+        # config params
         self.detector = None
         self.instrinsics = None
+        self.load_config("")
 
         self.global_transform = np.eye(4)
         self.color_prev = None
         self.cv_bridge = CvBridge()
 
-        self.load_config("")
-
         # publisher/subscribers
         tss = TimeSynchronizer([Subscriber(self, Image, "/camera/depth/image_rect_raw"),
                        Subscriber(self, Image, "/camera/color/image_raw")], queue_size=10)
         tss.registerCallback(self.visual_odom_callback)
+
+        # visualize matches
+        self.matches_pub_ = self.create_publisher(Image, 'matches_viz', 10)
 
         # visualizing pose chain
         self.poses_viz_pub_ = self.create_publisher(MarkerArray, 'poses_viz', 10)
@@ -52,7 +55,7 @@ class VisualOdometry(Node):
         self.traj_marker.color.a = 1.0
         self.traj_marker.color.r = 1.0
 
-        self.visualize_trajectory(self.global_transform)
+        # self.visualize_trajectory(self.global_transform)
 
 
     def visual_odom_callback(self, color_msg: Image, depth_msg: Image):
@@ -60,7 +63,7 @@ class VisualOdometry(Node):
         run VO pipeline
         """
         color_img = self.convert_image(color_msg)
-        depth_img = self.convert_image(depth_msg)
+        depth_img = self.convert_image(depth_msg, depth=True)
 
         if self.color_prev is None:
             self.color_prev = color_img
@@ -70,19 +73,28 @@ class VisualOdometry(Node):
         kps2, desc2 = self.get_features(color_img, self.detector)
 
         matches = self.get_matches(desc1, desc2, self.detector)
+        self.draw_matches(self.color_prev, color_img, kps1, kps2, matches)
+
+        # relative_transform = self.motion_estimate(kps1, kps2, matches, depth_img)
+        # global_transform = self.trajectory[-1] @ relative_transform
         
-        relative_transform = self.motion_estimate(kps1, kps2, matches, depth_img)
-        global_transform = self.trajectory[-1] @ relative_transform
-        
-        self.trajectory.append(global_transform)
-        self.visualize_trajectory(self.trajectory)
+        # self.trajectory.append(global_transform)
+        # self.visualize_trajectory(self.trajectory)
 
         self.color_prev = color_img
 
 
-    def convert_image(self, image_msg):
-        return self.cv_bridge.imgmsg_to_cv2(image_msg, "bgr8")
+    def convert_image(self, image_msg, depth=False):
+        if depth:
+            img = np.array(image_msg.data).reshape((image_msg.height, image_msg.width))
+        else:
+            img = self.cv_bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
+        return img
+
+    def draw_matches(self, img1, img2, kps1, kps2, matches):
+        match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        self.matches_pub_.publish(self.cv_bridge.cv2_to_imgmsg(match_img, "bgr8"))
 
     def get_features(self, image, detector_type):
         """
@@ -95,6 +107,9 @@ class VisualOdometry(Node):
 
         keypoints, descriptors = detector.detectAndCompute(image, None)
 
+        # each row in descriptor maps to a keypoint
+        # descriptor: numpy array
+        # keypoints: list of cv2.keypoints objects
         return keypoints, descriptors
     
 
@@ -117,6 +132,7 @@ class VisualOdometry(Node):
             if m1.distance < dist_thesh*m2.distance:
                 good_matches.append([m1])
         
+        # good matches: list of Dmatch objects
         return good_matches
     
 

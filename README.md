@@ -1,13 +1,14 @@
 # f1tenth-project
 
-## Setup the Environment
+## Natively
+### Setup the Environment
 
 Make the venv
 ```
 python -m venv vo-env
 ```
 
-### Windows:
+#### Windows:
 
 Set Execution Policy:
 ```
@@ -19,13 +20,18 @@ Activate Env:
 .\vo-env\Scripts\activate
 ```
 
-### Linux
+#### Linux
 Activate Env:
 ```
 source vo-env/bin/activate
 ```
 
-## Install Requirements
+### Install Requirements
 ```
 pip install -r requirements.txt
 ```
+
+## Attaching USB in WSL: Windows
+
+https://learn.microsoft.com/en-us/windows/wsl/connect-usb 
+

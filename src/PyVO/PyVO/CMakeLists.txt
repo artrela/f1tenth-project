@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 3.5)
 project(PyVO)
 
 # Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+# if(NOT CMAKE_CXX_STANDARD)
+#   set(CMAKE_CXX_STANDARD 14)
+# endif()
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+# if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#   add_compile_options(-Wall -Wextra -Wpedantic)
+# endif()
 
 # Find dependencies
 foreach(PACKAGE 
@@ -25,18 +25,18 @@ foreach(PACKAGE
 endforeach()
 
 # Include Cpp "include" directory
-include_directories(include)
+# include_directories(include)
 
 # Create Cpp executable
-add_executable(safety_node src/safety_node.cpp)
-ament_target_dependencies(safety_node 
-  rclcpp geometry_msgs ackermann_msgs nav_msgs sensor_msgs std_msgs
-)
+# add_executable(PyVO scripts/visual)
+# ament_target_dependencies(safety_node 
+#   rclcpp geometry_msgs ackermann_msgs nav_msgs sensor_msgs std_msgs
+# )
 
 # Install Cpp executables
-install(TARGETS
+# install(TARGETS
   
-  DESTINATION lib/${PROJECT_NAME})
+#   DESTINATION lib/${PROJECT_NAME})
 
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME})

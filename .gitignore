@@ -1,1 +1,5 @@
 house_vo_bag
+build/
+install/
+log/
+.git

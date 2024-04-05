@@ -1,58 +1,35 @@
 #!/usr/bin/env python3
-
 import rclpy
-import yaml
 import cv2
-
-from rclpy.node import Node
-
 import numpy as np
+import yaml
 from typing import List
-
+from rclpy.node import Node
 from message_filters import TimeSynchronizer, Subscriber
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
-from transforms3d.quaternions import mat2quat
 from cv_bridge import CvBridge, CvBridgeError
-
 
 class VisualOdometry(Node):
     """
     The class that handles the VO pipeline
     """
     def __init__(self):
-        super().__init__('visual_odom')
+        super().__init__('vo_node')
         """
         """
 
         self.detector = None
         self.instrinsics = None
 
-        self.global_transform = np.eye(4)
+        self.trajectory: List[np.ndarray] = [np.eye(4)]
         self.color_prev = None
         self.cv_bridge = CvBridge()
 
         self.load_config("")
 
-        # publisher/subscribers
-        tss = TimeSynchronizer([Subscriber(self, Image, "/camera/depth/image_rect_raw"),
-                       Subscriber(self, Image, "/camera/color/image_raw")], queue_size=10)
+        tss = TimeSynchronizer(Subscriber("/camera/depth/image_rect_raw", Image),
+                               Subscriber("/camera/color/image_raw", Image))
         tss.registerCallback(self.visual_odom_callback)
-
-        # visualizing pose chain
-        self.poses_viz_pub_ = self.create_publisher(MarkerArray, 'poses_viz', 10)
-        self.traj_viz_pub_ = self.create_publisher(Marker, 'traj_viz', 10)
-
-        self.poses_markers = MarkerArray()
-
-        self.traj_marker = Marker()
-        self.traj_marker.type = 4
-        self.traj_marker.scale.x = 1.0
-        self.traj_marker.color.a = 1.0
-        self.traj_marker.color.r = 1.0
-
-        self.visualize_trajectory(self.global_transform)
 
 
     def visual_odom_callback(self, color_msg: Image, depth_msg: Image):
@@ -78,11 +55,9 @@ class VisualOdometry(Node):
         self.visualize_trajectory(self.trajectory)
 
         self.color_prev = color_img
-
-
+    
     def convert_image(self, image_msg):
         return self.cv_bridge.imgmsg_to_cv2(image_msg, "bgr8")
-
 
     def get_features(self, image, detector_type):
         """
@@ -97,8 +72,8 @@ class VisualOdometry(Node):
 
         return keypoints, descriptors
     
-
-    def get_matches(self, desc1, desc2, detector, k=2, dist_thesh=0.75):
+    def get_matches(self, desc1, desc2, detectogit merge --abort
+r, k=2, dist_thesh=0.75):
         """"
         match features between two frames
         """
@@ -119,49 +94,17 @@ class VisualOdometry(Node):
         
         return good_matches
     
-
     def motion_estimate(self, kp_t, kp_tnext, matches, depth_img):
         pass
 
 
-    def visualize_trajectory(self, transform):
+    def visualize_trajectory(self, trajectory: List[np.ndarray]):
         """_summary_
 
         Args:
             trajectory (List[np.ndarray]): _description_
         """
-
-        ## TODO visualize point cloud from pose estimate
-
-        rot, trans = transform[:3, :3], transform[3, :3]
-
-        quat = mat2quat(rot)
-
-        pose = Marker()
-        pose.type = 0
-        pose.pose.position.x = trans[0]
-        pose.pose.position.y = trans[1]
-        pose.pose.position.z = trans[2]
-        pose.pose.orientation.x = quat[0]
-        pose.pose.orientation.y = quat[1]
-        pose.pose.orientation.z = quat[2]
-        pose.pose.orientation.w = quat[3]
-        pose.scale.x = 1.0
-        pose.scale.y = 1.0
-        pose.scale.z = 1.0
-        pose.color.a = 1.0
-        pose.color.g = 1.0
-        self.poses_markers.markers.append(pose)
-
-        point = Point()
-        point.x = trans[0]
-        point.y = trans[1]
-        point.z = trans[2]
-        self.traj_marker.points.append(point)
-
-        self.poses_viz_pub_.publish(self.poses_markers)
-        self.traj_viz_pub_.publish(self.traj_marker)
-
+        
 
     def load_config(self, path):
         """"
@@ -173,13 +116,12 @@ class VisualOdometry(Node):
         self.instrinsics = np.array(data['intrinsics'])
         self.detector = data['detector']
 
+
 def main(args=None):
 
     rclpy.init(args=args)
     vo_node = VisualOdometry()
     rclpy.spin(vo_node)
-
-    # Destroy the node explicitly
     vo_node.destroy_node()
     rclpy.shutdown()
 

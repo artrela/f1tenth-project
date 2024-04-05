@@ -3,18 +3,21 @@
 import rclpy
 import yaml
 import cv2
+import os
 
 from rclpy.node import Node
 
 import numpy as np
 from typing import List
 
-from message_filters import TimeSynchronizer, Subscriber
+from message_filters import TimeSynchronizer, Subscriber, ApproximateTimeSynchronizer
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
 from transforms3d.quaternions import mat2quat
 from cv_bridge import CvBridge, CvBridgeError
+from ament_index_python.packages import get_package_share_directory
+
 
 
 class VisualOdometry(Node):
@@ -29,15 +32,15 @@ class VisualOdometry(Node):
         # config params
         self.detector = None
         self.instrinsics = None
-        self.load_config("")
+        self.load_config('vo_config.yaml')
 
         self.global_transform = np.eye(4)
         self.color_prev = None
         self.cv_bridge = CvBridge()
 
         # publisher/subscribers
-        tss = TimeSynchronizer([Subscriber(self, Image, "/camera/depth/image_rect_raw"),
-                       Subscriber(self, Image, "/camera/color/image_raw")], queue_size=10)
+        tss = ApproximateTimeSynchronizer([Subscriber(self, Image, "/camera/depth/image_rect_raw"),
+                       Subscriber(self, Image, "/camera/color/image_raw")], 10, 0.01)
         tss.registerCallback(self.visual_odom_callback)
 
         # visualize matches
@@ -58,10 +61,12 @@ class VisualOdometry(Node):
         # self.visualize_trajectory(self.global_transform)
 
 
-    def visual_odom_callback(self, color_msg: Image, depth_msg: Image):
+    def visual_odom_callback(self, depth_msg: Image, color_msg: Image):
         """
         run VO pipeline
         """
+        # print("IN CALLBACK!!!!!!!!!!!!!!!")
+
         color_img = self.convert_image(color_msg)
         depth_img = self.convert_image(depth_msg, depth=True)
 
@@ -86,14 +91,15 @@ class VisualOdometry(Node):
 
     def convert_image(self, image_msg, depth=False):
         if depth:
-            img = np.array(image_msg.data).reshape((image_msg.height, image_msg.width))
+            img = self.cv_bridge.imgmsg_to_cv2(image_msg, "passthrough")
+            img = np.array(img.data).reshape((image_msg.height, image_msg.width))
         else:
             img = self.cv_bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
         return img
 
     def draw_matches(self, img1, img2, kps1, kps2, matches):
-        match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches[:15], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         self.matches_pub_.publish(self.cv_bridge.cv2_to_imgmsg(match_img, "bgr8"))
 
     def get_features(self, image, detector_type):
@@ -119,9 +125,9 @@ class VisualOdometry(Node):
         """
         # brute-force matching
         if detector == 'sift':
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
+            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
         elif detector == 'orb':
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
 
         # knn match
         matches = bf.knnMatch(desc1, desc2, k)
@@ -179,11 +185,15 @@ class VisualOdometry(Node):
         self.traj_viz_pub_.publish(self.traj_marker)
 
 
-    def load_config(self, path):
+    def load_config(self, filename):
         """"
         load parameters from config file
         """
-        with open(path, 'r') as file:
+        # cwd = os.getcwd()
+        # package_share_directory = get_package_share_directory('py_vo')
+        yaml_file_path = os.path.join('/home/sridevi/Documents/f1tenth-project/src/py_vo', "config", filename)
+
+        with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)
         
         self.instrinsics = np.array(data['intrinsics'])

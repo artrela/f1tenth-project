@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import cv2 as cv
+
 import rclpy
 from rclpy.node import Node
 
 import numpy as np
 from typing import List
+from collections import namedtuple
 
 from message_filters import TimeSynchronizer, Subscriber
 from visualization_msgs.msg import Marker, MarkerArray
@@ -23,10 +26,11 @@ class VisualOdometry(Node):
         """
 
         self.detector = None
-        self.instrinsic_matrix = None
+        self.instrinsic_matrix = np.zeros((4, 4))
 
         self.global_transform = np.eye(4)
         self.color_prev = None
+        self.depth_prev = None
 
         self.load_config("")
 
@@ -39,6 +43,7 @@ class VisualOdometry(Node):
         self.poses_viz_pub_ = self.create_publisher(MarkerArray, 'poses_viz', 10)
         self.traj_viz_pub_ = self.create_publisher(Marker, 'traj_viz', 10)
 
+        # TODO add a frame id here
         self.poses_markers = MarkerArray()
 
         self.traj_marker = Marker()
@@ -57,6 +62,7 @@ class VisualOdometry(Node):
 
         if self.color_prev is None:
             self.color_prev = color_img
+            self.depth_prev = depth_img
             return
         
         kps1, desc1 = self.get_features(self.color_prev, self.detector)
@@ -65,12 +71,12 @@ class VisualOdometry(Node):
         matches = self.get_matches(desc1, desc2, self.detector)
         
         relative_transform = self.motion_estimate(kps1, kps2, matches, depth_img)
-        global_transform = self.trajectory[-1] @ relative_transform
+        global_transform = global_transform @ relative_transform
         
-        self.trajectory.append(global_transform)
-        self.visualize_trajectory(self.trajectory)
+        self.visualize_trajectory(global_transform)
 
         self.color_prev = color_img
+        self.depth_prev = depth_img
 
 
     def get_features(self, image, detector):
@@ -86,8 +92,44 @@ class VisualOdometry(Node):
         
         pass
     
-    def motion_estimate(self, kp_t, kp_tnext, matches, depth_img):
-        pass
+    def motion_estimate(self, kp_tprev, kp_t, matches, depth_t_prev):
+
+        #TODO should depth image be for tprev or t?
+        kp_tprev_idx = np.array([ kp_tprev[m.queryIdx].pt for m in matches])
+        kp_t_idx = np.array([ kp_t[m.trainIdx].pt for m in matches])
+
+        assert kp_tprev_idx.shape == (len(matches), 2)
+
+        world_pts = np.zeros((len(matches), 3))
+
+        '''
+        Projecting World to Camera & vice versa:
+        x = fX / Z -> X = xZ / f
+        y = fY / Z -> Y = yZ / f
+
+        Note 
+        '''
+
+        #TODO depth clipping???
+        Z = depth_t_prev[kp_tprev_idx]
+        c = self.intrinsic_matrix[0:1, 2]
+        f = np.array([self.intrinsic_matrix[0, 0], self.intrinsic_matrix[1, 1]])
+
+        world_pts[:, 0:2] = Z * (kp_tprev_idx - c) / f
+        world_pts[2] = Z
+
+        success, rot_est, t_est = cv.solvePnPRansac(world_pts, kp_t_idx, self.instrinsic_matrix)
+
+        transform = np.eye(4)
+            
+        if success:
+            transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
+            transform[0:3, -1] - t_est
+
+        else:
+            self.get_logger().warning("PnP Pose Estimate Failed!")
+
+        return transform
 
 
     def visualize_trajectory(self, transform):
@@ -98,7 +140,6 @@ class VisualOdometry(Node):
         """
 
         ## TODO visualize point cloud from pose estimate
-
         rot, trans = transform[:3, :3], transform[3, :3]
 
         quat = mat2quat(rot)
@@ -142,6 +183,3 @@ def main(args=None):
     vo_node.destroy_node()
     rclpy.shutdown()
 
-
-if __name__ == '__main__':
-    main()

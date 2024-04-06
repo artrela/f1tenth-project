@@ -34,7 +34,7 @@ class VisualOdometry(Node):
 
         # config params
         self.detector = None
-        self.instrinsics = None
+        self.intrinsics = None
         self.load_config('vo_config.yaml')
 
         self.global_transform = np.eye(4)
@@ -43,7 +43,7 @@ class VisualOdometry(Node):
         self.cv_bridge = CvBridge()
 
         # publisher/subscribers
-        tss = ApproximateTimeSynchronizer([Subscriber(self, Image, "/camera/depth/image_rect_raw"),
+        tss = ApproximateTimeSynchronizer([Subscriber(self, Image, "/camera/aligned_depth_to_color/image_raw"),
                        Subscriber(self, Image, "/camera/color/image_raw")], 10, 0.01)
         tss.registerCallback(self.visual_odom_callback)
 
@@ -58,38 +58,40 @@ class VisualOdometry(Node):
         self.poses_markers = MarkerArray()
 
         self.traj_marker = Marker()
+        self.traj_marker.header.frame_id = "origin"
         self.traj_marker.type = 4
-        self.traj_marker.scale.x = 1.0
+        self.traj_marker.scale.x = 0.3
         self.traj_marker.color.a = 1.0
         self.traj_marker.color.r = 1.0
 
-        # self.visualize_trajectory(self.global_transform)
+        self.visualize_trajectory(self.global_transform)
 
 
     def visual_odom_callback(self, depth_msg: Image, color_msg: Image):
         """
         run VO pipeline
         """
-        # print("IN CALLBACK!!!!!!!!!!!!!!!")
 
         color_img = self.convert_image(color_msg)
         depth_img = self.convert_image(depth_msg, depth=True)
+
+        # print(f"{color_img.shape=} | {depth_img.shape=}")
 
         if self.color_prev is None:
             self.color_prev = color_img
             self.depth_prev = depth_img
             return
 
-        kps1, desc1 = self.get_features(self.color_prev, self.detector)
-        kps2, desc2 = self.get_features(color_img, self.detector)
+        kps_prev, desc_prev = self.get_features(self.color_prev, self.detector)
+        kps, desc = self.get_features(color_img, self.detector)
 
-        matches = self.get_matches(desc1, desc2, self.detector)
-        self.draw_matches(self.color_prev, color_img, kps1, kps2, matches)
+        matches = self.get_matches(desc_prev, desc, self.detector)
+        self.draw_matches(self.color_prev, color_img, kps_prev, kps, matches)
 
-        relative_transform = self.motion_estimate(kps1, kps2, matches, depth_img)
-        global_transform = global_transform @ relative_transform
+        relative_transform = self.motion_estimate(kps_prev, kps, matches, self.depth_prev)
+        self.global_transform = self.global_transform @ relative_transform
         
-        self.visualize_trajectory(global_transform)
+        self.visualize_trajectory(self.global_transform)
 
         self.color_prev = color_img
         self.depth_prev = depth_img
@@ -148,13 +150,17 @@ class VisualOdometry(Node):
         return good_matches
     
 
-     def motion_estimate(self, kp_tprev, kp_t, matches, depth_t_prev):
+    def motion_estimate(self, kp_tprev, kp_t, matches, depth_t_prev):
+
+        transform = np.eye(4)
+
+        if len(matches) < 4:
+            self.get_logger().warning("Less than 4 matches! Cannot attempt PnP...")
+            return transform
 
         #TODO should depth image be for tprev or t?
-        kp_tprev_idx = np.array([ kp_tprev[m.queryIdx].pt for m in matches])
-        kp_t_idx = np.array([ kp_t[m.trainIdx].pt for m in matches])
-
-        assert kp_tprev_idx.shape == (len(matches), 2)
+        kp_tprev_idx = np.array([ kp_tprev[m[0].queryIdx].pt for m in matches], dtype=int)
+        kp_t_idx = np.array([ kp_t[m[0].trainIdx].pt for m in matches], dtype=np.float)
 
         world_pts = np.zeros((len(matches), 3))
 
@@ -167,16 +173,15 @@ class VisualOdometry(Node):
         '''
 
         #TODO depth clipping???
-        Z = depth_t_prev[kp_tprev_idx]
-        c = self.intrinsic_matrix[0:1, 2]
-        f = np.array([self.intrinsic_matrix[0, 0], self.intrinsic_matrix[1, 1]])
+        Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
+        c = np.expand_dims(self.intrinsics[0:1, 2], axis=0)
+        f = np.array([[self.intrinsics[0, 0], self.intrinsics[1, 1]]])
 
-        world_pts[:, 0:2] = Z * (kp_tprev_idx - c) / f
-        world_pts[2] = Z
+        world_pts[:, 0:2] = Z[:, np.newaxis] * (kp_tprev_idx - c) / f
+        world_pts[:, 2] = Z
+        
+        success, rot_est, t_est, _ = cv.solvePnPRansac(world_pts, kp_t_idx, self.intrinsics, None)
 
-        success, rot_est, t_est = cv.solvePnPRansac(world_pts, kp_t_idx, self.instrinsic_matrix)
-
-        transform = np.eye(4)
             
         if success:
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
@@ -196,11 +201,13 @@ class VisualOdometry(Node):
         """
 
         ## TODO visualize point cloud from pose estimate
-        rot, trans = transform[:3, :3], transform[3, :3]
+        rot, trans = transform[:3, :3], transform[-1, :3]
 
         quat = mat2quat(rot)
 
         pose = Marker()
+        pose.id = len(self.poses_markers.markers) + 1
+        pose.header.frame_id = "origin"
         pose.type = 0
         pose.pose.position.x = trans[0]
         pose.pose.position.y = trans[1]
@@ -209,9 +216,9 @@ class VisualOdometry(Node):
         pose.pose.orientation.y = quat[1]
         pose.pose.orientation.z = quat[2]
         pose.pose.orientation.w = quat[3]
-        pose.scale.x = 1.0
-        pose.scale.y = 1.0
-        pose.scale.z = 1.0
+        pose.scale.x = 0.3
+        pose.scale.y = 0.1
+        pose.scale.z = 0.1
         pose.color.a = 1.0
         pose.color.g = 1.0
         self.poses_markers.markers.append(pose)
@@ -232,12 +239,12 @@ class VisualOdometry(Node):
         """
         # cwd = os.getcwd()
         # package_share_directory = get_package_share_directory('py_vo')
-        yaml_file_path = os.path.join('/home/sridevi/Documents/f1tenth-project/src/py_vo', "config", filename)
+        yaml_file_path = os.path.join("/home/atrela/Documents/f1tenth-project/src/py_vo", "config", filename)
 
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)
         
-        self.instrinsics = np.array(data['intrinsics'])
+        self.intrinsics = np.array(data['intrinsics'])
         self.detector = data['detector']
 
 def main(args=None):
@@ -249,4 +256,7 @@ def main(args=None):
     # Destroy the node explicitly
     vo_node.destroy_node()
     rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
 

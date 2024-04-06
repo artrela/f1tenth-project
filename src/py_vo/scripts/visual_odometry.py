@@ -137,7 +137,7 @@ class VisualOdometry(Node):
         if detector == 'sift':
             bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
         elif detector == 'orb':
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 
         # knn match
         matches = bf.knnMatch(desc1, desc2, k)
@@ -241,7 +241,7 @@ class VisualOdometry(Node):
         """
         # cwd = os.getcwd()
         # package_share_directory = get_package_share_directory('py_vo')
-        yaml_file_path = os.path.join("/home/atrela/Documents/f1tenth-project/src/py_vo", "config", filename)
+        yaml_file_path = os.path.join("/home/sridevi/Documents/f1tenth-project/src/py_vo", "config", filename)
 
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)

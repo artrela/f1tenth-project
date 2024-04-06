@@ -15,7 +15,8 @@ from collections import namedtuple
 
 from message_filters import TimeSynchronizer, Subscriber, ApproximateTimeSynchronizer
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Path
 from sensor_msgs.msg import Image
 from transforms3d.quaternions import mat2quat
 from cv_bridge import CvBridge, CvBridgeError
@@ -54,17 +55,14 @@ class VisualOdometry(Node):
 
         # visualizing pose chain
         self.poses_viz_pub_ = self.create_publisher(MarkerArray, 'poses_viz', 10)
-        self.traj_viz_pub_ = self.create_publisher(Marker, 'traj_viz', 10)
+        self.traj_viz_pub_ = self.create_publisher(Path, 'traj_viz', 10)
 
         # TODO add a frame id here
         self.poses_markers = MarkerArray()
 
-        self.traj_marker = Marker()
+        self.traj_marker = Path()
         self.traj_marker.header.frame_id = "origin"
-        self.traj_marker.type = 4
-        self.traj_marker.scale.x = 0.3
-        self.traj_marker.color.a = 1.0
-        self.traj_marker.color.r = 1.0
+        
 
         self.visualize_trajectory(self.global_transform)
 
@@ -159,12 +157,12 @@ class VisualOdometry(Node):
         if len(matches) < 4:
             self.get_logger().warning("Less than 4 matches! Cannot attempt PnP...")
             return transform
+        
 
         #TODO should depth image be for tprev or t?
         kp_tprev_idx = np.array([ kp_tprev[m[0].queryIdx].pt for m in matches], dtype=int)
-        kp_t_idx = np.array([ kp_t[m[0].trainIdx].pt for m in matches], dtype=np.float)
+        kp_t_idx = np.array([ kp_t[m[0].trainIdx].pt for m in matches], dtype=float)
 
-        world_pts = np.zeros((len(matches), 3))
 
         '''
         Projecting World to Camera & vice versa:
@@ -176,6 +174,18 @@ class VisualOdometry(Node):
 
         #TODO depth clipping???
         Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
+        # low_depth = Z < 6000
+
+        # Z = Z[low_depth]
+        # kp_tprev_idx = kp_tprev_idx[low_depth, :]
+        # kp_t_idx = kp_t_idx[low_depth, :]
+
+        world_pts = np.zeros((len(Z), 3))
+
+        # if len(Z) < 60:
+        #     self.get_logger().warning("Less than 60 matches! Too few matches...")
+        #     return transform
+
         c = np.expand_dims(self.intrinsics[0:1, 2], axis=0)
         f = np.array([[self.intrinsics[0, 0], self.intrinsics[1, 1]]])
 
@@ -187,7 +197,6 @@ class VisualOdometry(Node):
         if success:
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
             transform[0:3, -1] = np.squeeze(t_est) / 1000
-            # print(t_est)
 
         else:
             self.get_logger().warning("PnP Pose Estimate Failed!")
@@ -218,18 +227,18 @@ class VisualOdometry(Node):
         pose.pose.orientation.y = quat[1]
         pose.pose.orientation.z = quat[2]
         pose.pose.orientation.w = quat[3]
-        pose.scale.x = 0.2
-        pose.scale.y = 0.05
-        pose.scale.z = 0.05
+        pose.scale.x = 0.3
+        pose.scale.y = 0.025
+        pose.scale.z = 0.025
         pose.color.a = 1.0
-        pose.color.g = 1.0
+        pose.color.b = 1.0
         self.poses_markers.markers.append(pose)
 
-        point = Point()
-        point.x = trans[0]
-        point.y = trans[1]
-        point.z = trans[2]
-        self.traj_marker.points.append(point)
+        pose = PoseStamped()
+        pose.pose.position.x = trans[0]
+        pose.pose.position.y = trans[1]
+        pose.pose.position.z = trans[2]
+        self.traj_marker.poses.append(pose)
 
         self.poses_viz_pub_.publish(self.poses_markers)
         self.traj_viz_pub_.publish(self.traj_marker)

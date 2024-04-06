@@ -38,6 +38,8 @@ class VisualOdometry(Node):
         self.load_config('vo_config.yaml')
 
         self.global_transform = np.eye(4)
+        self.global_transform[:, -1] = 1
+
         self.color_prev = None
         self.depth_prev = None
         self.cv_bridge = CvBridge()
@@ -181,11 +183,11 @@ class VisualOdometry(Node):
         world_pts[:, 2] = Z
         
         success, rot_est, t_est, _ = cv.solvePnPRansac(world_pts, kp_t_idx, self.intrinsics, None)
-
             
         if success:
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
-            transform[0:3, -1] - t_est
+            transform[0:3, -1] = np.squeeze(t_est) / 1000
+            # print(t_est)
 
         else:
             self.get_logger().warning("PnP Pose Estimate Failed!")
@@ -201,7 +203,7 @@ class VisualOdometry(Node):
         """
 
         ## TODO visualize point cloud from pose estimate
-        rot, trans = transform[:3, :3], transform[-1, :3]
+        rot, trans = transform[:3, :3], transform[0:3, -1]
 
         quat = mat2quat(rot)
 
@@ -216,9 +218,9 @@ class VisualOdometry(Node):
         pose.pose.orientation.y = quat[1]
         pose.pose.orientation.z = quat[2]
         pose.pose.orientation.w = quat[3]
-        pose.scale.x = 0.3
-        pose.scale.y = 0.1
-        pose.scale.z = 0.1
+        pose.scale.x = 0.2
+        pose.scale.y = 0.05
+        pose.scale.z = 0.05
         pose.color.a = 1.0
         pose.color.g = 1.0
         self.poses_markers.markers.append(pose)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(py_vo)
+project(cpp_vo)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -15,29 +15,58 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# find dependencies
 # Find dependencies
 foreach(PACKAGE 
   ament_cmake 
-  ament_cmake_python
   rclcpp
-  rclpy 
-  message_filters
+  std_msgs
+  visualization_msgs
+  Eigen3
+  nav_msgs
+  geometry_msgs
   sensor_msgs
-  std_msgs)
+  message_filters
+  OpenCV
+  )
 
   find_package(${PACKAGE} REQUIRED)
 
 endforeach()
 
-# Install Python modules
-ament_python_install_package(${PROJECT_NAME})
-
-# Install Python executables
-install(PROGRAMS
-  scripts/visual_odometry.py
-  scripts/fake_origin_frame.py
-  DESTINATION lib/${PROJECT_NAME}
+# Include Cpp "include" directory
+include_directories(include)
+include_directories(
+  ${EIGEN3_INCLUDE_DIRS}
 )
+include_directories(
+  ${OpenCV_INCLUDE_DIRS}
+)
+
+
+# Create Cpp executable
+add_executable(vo_node src/vo_node.cpp src/vo.cpp)
+target_link_libraries(vo_node ${OpenCV_LIBS})
+# target_link_libraries(vo_node ${EIGEN3_LIBS})
+
+ament_target_dependencies(vo_node 
+  ament_cmake 
+  rclcpp
+  std_msgs
+  visualization_msgs
+  Eigen3
+  nav_msgs
+  geometry_msgs
+  sensor_msgs
+  message_filters
+  OpenCV
+)
+
+# Install Cpp executables
+install(TARGETS
+  vo_node
+  DESTINATION lib/${PROJECT_NAME})
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

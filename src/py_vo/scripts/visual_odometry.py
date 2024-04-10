@@ -135,7 +135,7 @@ class VisualOdometry(Node):
         if detector == 'sift':
             bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
         elif detector == 'orb':
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
 
         # knn match
         matches = bf.knnMatch(desc1, desc2, k)

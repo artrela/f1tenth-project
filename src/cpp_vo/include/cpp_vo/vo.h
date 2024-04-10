@@ -28,8 +28,8 @@ class VO : public rclcpp::Node {
 
     private:
     // initializations
-    cv::Mat color_prev;
-    cv::Mat depth_prev;    
+    cv::Mat color_prev, depth_prev;  
+    cv::Mat intrinsics;
 
     // publishers and subscribers
 
@@ -44,7 +44,8 @@ class VO : public rclcpp::Node {
         const vector<cv::KeyPoint>& kps2, const vector<cv::DMatch>& matches);
     void get_features();
     void get_matches();
-    void motion_estimate();
+    cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
+        const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
     void visualize_trajectory();
     void load_config(string filepath);
 

@@ -27,6 +27,7 @@ foreach(PACKAGE
   geometry_msgs
   sensor_msgs
   message_filters
+  cv_bridge
   OpenCV
   )
 
@@ -59,6 +60,7 @@ ament_target_dependencies(vo_node
   geometry_msgs
   sensor_msgs
   message_filters
+  cv_bridge
   OpenCV
 )
 

@@ -1,8 +1,10 @@
 #include "cpp_vo/vo.h"
+
 using namespace std;
-using sensor_msgs::msg::Image;
+// using sensor_msgs::msg::Image;
+using namespace sensor_msgs::msg;
 using namespace message_filters;
-using SyncPolicy = sync_policies::ApproximateTime<Image, Image>;
+// using SyncPolicy = sync_policies::ApproximateTime<Image, Image>;
 
 // Destructor of the VO class
 VO::~VO() {
@@ -15,12 +17,14 @@ VO::VO(): rclcpp::Node("vo_node")
     // ROS publishers and subscribers
     matches_publisher_ = this->create_publisher<Image>("/matches", 10);
 
-    message_filters::Subscriber<Image> depth_img_sub(this, "/camera/aligned_depth_to_color/image_raw");
-    message_filters::Subscriber<Image> color_img_sub(this, "/camera/color/image_raw");
-    auto sync = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
-            SyncPolicy(10), depth_img_sub, color_img_sub);
-    sync->registerCallback(std::bind(&VO::visual_odom_callback, this, std::placeholders::_1, std::placeholders::_2));
+    depth_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/aligned_depth_to_color/image_raw");
+    color_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/color/image_raw");
 
+    syncApproximate = std::make_shared<message_filters::Synchronizer<ApproximatePolicy>>(ApproximatePolicy(10), *depth_img_sub, *color_img_sub);
+
+    syncApproximate->setMaxIntervalDuration(rclcpp::Duration(0, 100000000));  // 0.1 seconds
+    syncApproximate->registerCallback(std::bind(&VO::visual_odom_callback, this, std::placeholders::_1, std::placeholders::_2));
+    
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
     global_tf.col(3).setTo(cv::Scalar(1));
@@ -35,18 +39,21 @@ VO::VO(): rclcpp::Node("vo_node")
     std::string feature = "sift";
 
     if( feature == "sift" ){
-        static cv::Ptr<cv::Feature2D> feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
+        feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
     }
     else{
-        static cv::Ptr<cv::ORB> feature_extractor = cv::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
+        feature_extractor = cv::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
 
     }
 
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "OpenCV Version: ", CV_VERSION);
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Created new VO Object.");
 }
 
-void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr depth_msg, const sensor_msgs::msg::Image::ConstSharedPtr color_msg){
+void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg, const sensor_msgs::msg::Image::ConstSharedPtr& color_msg){
     
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "In Callback!");
+
     // convert image
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
@@ -55,23 +62,28 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr dept
         color_prev_ptr = std::make_unique<cv::Mat>(color_img);
         depth_prev_ptr = std::make_unique<cv::Mat>(depth_img);
 
-        feature_extractor->detectAndCompute(*color_prev_ptr, this->kps_prev);
+        feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), this->kps_prev, this->desc_prev);
     }
+
 
     // get features
     std::vector<cv::KeyPoint> kps;
     std::vector<cv::Mat> desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
-    // get matche
-
+    // get matches
+    vector<cv::DMatch> good_matches;
+    get_matches(desc_prev, desc, good_matches);
+    draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
 
     // get transforms
     // cv::Mat relative_tf = motion_estimate(this->kps_prev, kps, matches, *depth_prev_ptr);
     // global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    visualize_trajectory(global_tf);
+    // visualize_trajectory(global_tf);
 
     // update prev images
     *color_prev_ptr = color_img;
@@ -85,35 +97,42 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
     cv_bridge::CvImagePtr cv_ptr;
 
     if( depth ){
-        cv_ptr = cv_bridge::toCvCopy(image_msg, "passthrough");
+        cv_ptr = cv_bridge::toCvCopy(image_msg, "16UC1");
     }
     else{
         cv_ptr = cv_bridge::toCvCopy(image_msg, "bgr8");
     }
 
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", cv_ptr->image.size());
+
+    return cv_ptr->image;
+
 }
 
-void VO::draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, const vector<cv::KeyPoint>& kps2, const vector<cv::DMatch>& matches){
+void VO::draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches){
 
     cv::Mat img_matches;
     drawMatches( img1, kps1, img2, kps2, matches, img_matches, cv::Scalar::all(-1),
     cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
-    cv_bridge::CvImagePtr cv_ptr;
-    cv_ptr->image = img_matches;
-    cv_ptr = cv_bridge::toCvCopy(cv_ptr, sensor_msgs::image_encodings::BGR8);
-    matches_publisher_->publish(cv_ptr->toImageMsg());
+    sensor_msgs::msg::Image::SharedPtr msg =
+            cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", img_matches)
+                .toImageMsg();
+
+    matches_publisher_->publish(*msg);
 }
 
 
 
-void VO::get_matches(const std::vector<cv::KeyPoint>& desc1, const std::vector<cv::KeyPoint>& desc2,
+void VO::get_matches(const std::vector<cv::Mat>& desc1, const std::vector<cv::Mat>& desc2,
                         std::vector<cv::DMatch>& good_matches ){
 
     // https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html 
 
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "Number of Matches: ", good_matches.size());
+
     cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
-    std::vector< std::vector<cv::DMatch> > knn_matches;
+    std::vector<std::vector<cv::DMatch>> knn_matches;
     matcher->knnMatch( desc1, desc2, knn_matches, 2 );
 
     const float ratio_thresh = 0.7f;
@@ -175,9 +194,5 @@ void VO::visualize_trajectory(){
 
 }
 
-
-void VO::load_config(string filepath){
-
-}
 
 

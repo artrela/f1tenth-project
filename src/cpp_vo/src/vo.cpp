@@ -40,8 +40,7 @@ VO::VO(): rclcpp::Node("vo_node")
                                             0, 605.257568359375, 239.6647491455078,
                                             0.0, 0.0, 1.0);
     
-
-    // TODO turn to rosparam
+    // TODO: turn to rosparam
     std::string feature = "sift";
 
     if( feature == "sift" ){
@@ -71,28 +70,23 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
 
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_img.rows, color_img.cols);
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_img.rows, depth_img.cols);
 
     // first time initialization check
     if (color_prev_ptr->empty() && depth_prev_ptr->empty()) {
         *color_prev_ptr = color_img.clone();
         *depth_prev_ptr = depth_img.clone();
-
-        RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_prev_ptr->rows, color_prev_ptr->cols);
-        RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_prev_ptr->rows, depth_prev_ptr->cols);
+        // RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_prev_ptr->rows, color_prev_ptr->cols);
+        // RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_prev_ptr->rows, depth_prev_ptr->cols);
         feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), kps_prev, desc_prev);
     }
 
     // get features
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "extracting features");
     std::vector<cv::KeyPoint> kps;
     cv::Mat desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
     // get matches
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "getting matches");
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
     draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
@@ -244,7 +238,6 @@ void VO::visualize_trajectory(cv::Mat tf){
 
     poses_viz_pub->publish(pose_markers);
     traj_viz_pub->publish(traj_path);
-
 }
 
 

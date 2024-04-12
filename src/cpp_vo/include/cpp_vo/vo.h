@@ -43,14 +43,10 @@ class VO : public rclcpp::Node {
         // initializations
         std::unique_ptr<cv::Mat> color_prev_ptr;
         std::unique_ptr<cv::Mat> depth_prev_ptr;
-
         cv::Mat intrinsics;
-
         std::vector<cv::KeyPoint> kps_prev;
         cv::Mat desc_prev;
-
         cv::Mat global_tf;
-
         cv::Ptr<cv::Feature2D> feature_extractor;
         visualization_msgs::msg::MarkerArray pose_markers;
         nav_msgs::msg::Path traj_path;

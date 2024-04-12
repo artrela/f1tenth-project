@@ -1,6 +1,5 @@
 #include "cpp_vo/vo.h"
 
-
 using namespace std;
 // using sensor_msgs::msg::Image;
 using namespace sensor_msgs::msg;
@@ -90,9 +89,11 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
     draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
+    cout << good_matches.size() << endl;
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
 
     // get transforms
+    cout << good_matches.size() << endl;
     cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr);
     global_tf = global_tf * relative_tf;
 
@@ -139,7 +140,7 @@ void VO::get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatc
 
     // https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html 
 
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "Number of Matches: ", good_matches.size());
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %i\n", "Number of Matches: ", good_matches.size());
 
     cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
     std::vector<std::vector<cv::DMatch>> knn_matches;
@@ -177,6 +178,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
         // get depth value at keypoint coords
         auto Z = depth_t_prev.at<double>(pt_prev.y, pt_prev.x);
+        // auto Z = depth_values / 1000; // mm t0 m
         
         // get world coordinates from intrinsics
         float X = Z * (pt_prev.x - intrinsics.at<double>(0, 2)) / intrinsics.at<double>(0, 0);
@@ -193,6 +195,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
     // make tf matrix
     if (success) {
+        // cv::Mat tvec_scaled = tvec / 1000;
         cv::Mat R;
         cv::Rodrigues(rvec, R);
         R.copyTo(tf(cv::Rect(0, 0, 3, 3)));

@@ -27,12 +27,15 @@ foreach(PACKAGE
   geometry_msgs
   sensor_msgs
   message_filters
+  cv_bridge
   OpenCV
   )
 
   find_package(${PACKAGE} REQUIRED)
 
 endforeach()
+
+find_package(OpenCV 3.4.16 REQUIRED)
 
 # Include Cpp "include" directory
 include_directories(include)
@@ -59,7 +62,8 @@ ament_target_dependencies(vo_node
   geometry_msgs
   sensor_msgs
   message_filters
-  OpenCV
+  cv_bridge
+  OpenCV 
 )
 
 # Install Cpp executables

@@ -124,8 +124,13 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
 
 void VO::draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches){
 
+    vector<cv::DMatch> top_matches;
+    for(size_t i = 0; i < 15; i++){
+        top_matches.push_back(matches[i]);
+    }
+
     cv::Mat img_matches;
-    drawMatches( img1, kps1, img2, kps2, matches, img_matches, cv::Scalar::all(-1),
+    drawMatches( img1, kps1, img2, kps2, top_matches, img_matches, cv::Scalar::all(-1),
     cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
     sensor_msgs::msg::Image::SharedPtr msg =
@@ -202,7 +207,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
         cv::Rodrigues(rvec, R);
         R.copyTo(tf(cv::Rect(0, 0, 3, 3)));
         tvec.copyTo(tf(cv::Rect(3, 0, 1, 3)));
-        
+
     } else {
         RCLCPP_INFO(rclcpp::get_logger("VO"), "PnP Pose Estimate Failed");
     }

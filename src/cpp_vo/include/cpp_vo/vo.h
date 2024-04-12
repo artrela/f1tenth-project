@@ -64,7 +64,7 @@ class VO : public rclcpp::Node {
             const sensor_msgs::msg::Image::ConstSharedPtr& color_msg);
 
         // methods
-        cv::Mat convert_image(const sensor_msgs::msg::Image::ConstSharedPtr::ConstSharedPtr image_msg, bool depth);
+        cv::Mat convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, bool depth);
         void draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, 
                     const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches);
         void get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatch>& good_matches);

@@ -63,7 +63,7 @@ VO::VO(): rclcpp::Node("vo_node")
 
 void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg, const sensor_msgs::msg::Image::ConstSharedPtr& color_msg){
     
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "In Callback!");
+    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "In Callback!");
 
     // convert image
     cv::Mat color_img = convert_image(color_msg, false);
@@ -83,17 +83,17 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     std::vector<cv::KeyPoint> kps;
     cv::Mat desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
+    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
     // get matches
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
     draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
-    cout << good_matches.size() << endl;
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
+    // cout << good_matches.size() << endl;
+    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
 
     // get transforms
-    cout << good_matches.size() << endl;
+    // cout << good_matches.size() << endl;
     cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr);
     global_tf = global_tf * relative_tf;
 
@@ -140,7 +140,6 @@ void VO::get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatc
 
     // https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html 
 
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %i\n", "Number of Matches: ", good_matches.size());
 
     cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
     std::vector<std::vector<cv::DMatch>> knn_matches;
@@ -177,8 +176,9 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
         cv::Point2f pt_current = kp_t[match.trainIdx].pt;
 
         // get depth value at keypoint coords
-        auto Z = depth_t_prev.at<double>(pt_prev.y, pt_prev.x);
-        // auto Z = depth_values / 1000; // mm t0 m
+        // IMPORTANT: https://github.com/IntelRealSense/realsense-ros/issues/807#issuecomment-529909735 
+        auto Z = depth_t_prev.at<u_int16_t>(pt_prev.y, pt_prev.x);
+        Z /= 1000; // mm t0 m
         
         // get world coordinates from intrinsics
         float X = Z * (pt_prev.x - intrinsics.at<double>(0, 2)) / intrinsics.at<double>(0, 0);
@@ -191,15 +191,18 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
     // use solve PnP RANSAC to get rvec and tvec
     cv::Mat rvec, tvec;
-    bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::Mat(), rvec, tvec);
+    bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
 
     // make tf matrix
     if (success) {
-        // cv::Mat tvec_scaled = tvec / 1000;
+
+        cv::solvePnPRefineLM(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
+
         cv::Mat R;
         cv::Rodrigues(rvec, R);
         R.copyTo(tf(cv::Rect(0, 0, 3, 3)));
         tvec.copyTo(tf(cv::Rect(3, 0, 1, 3)));
+        
     } else {
         RCLCPP_INFO(rclcpp::get_logger("VO"), "PnP Pose Estimate Failed");
     }

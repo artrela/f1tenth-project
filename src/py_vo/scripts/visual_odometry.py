@@ -174,6 +174,7 @@ class VisualOdometry(Node):
 
         #TODO depth clipping???
         Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
+        Z /= 1000
         # low_depth = Z < 6000
 
         # Z = Z[low_depth]
@@ -200,7 +201,7 @@ class VisualOdometry(Node):
                                                 rvec=rot_est, tvec=t_est)
 
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
-            transform[0:3, -1] = np.squeeze(t_est) / 1000
+            transform[0:3, -1] = np.squeeze(t_est)
 
         else:
             self.get_logger().warning("PnP Pose Estimate Failed!")

@@ -193,8 +193,12 @@ class VisualOdometry(Node):
         world_pts[:, 2] = Z
         
         success, rot_est, t_est, _ = cv.solvePnPRansac(world_pts, kp_t_idx, self.intrinsics, None)
-            
+
         if success:
+
+            rot_est, t_est = cv.solvePnPRefineLM(world_pts, kp_t_idx, self.intrinsics, None,
+                                                rvec=rot_est, tvec=t_est)
+
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
             transform[0:3, -1] = np.squeeze(t_est) / 1000
 
@@ -250,7 +254,7 @@ class VisualOdometry(Node):
         """
         # cwd = os.getcwd()
         # package_share_directory = get_package_share_directory('py_vo')
-        yaml_file_path = os.path.join("/home/sridevi/Documents/f1tenth-project/src/py_vo", "config", filename)
+        yaml_file_path = os.path.join("/home/atrela/Documents/f1tenth-project/src/py_vo", "config", filename)
 
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)

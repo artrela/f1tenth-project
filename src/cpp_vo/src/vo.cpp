@@ -28,7 +28,7 @@ VO::VO(): rclcpp::Node("vo_node")
 
     syncApproximate->setMaxIntervalDuration(rclcpp::Duration(0, 100000000));  // 0.1 seconds
     syncApproximate->registerCallback(std::bind(&VO::visual_odom_callback, this, std::placeholders::_1, std::placeholders::_2));
-        poses_viz_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/poses_viz", 10);
+    poses_viz_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/poses_viz", 10);
     traj_viz_pub = this->create_publisher<nav_msgs::msg::Path>("/traj_viz", 10);
 
     // initialize tf values
@@ -99,11 +99,11 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
 
     // get transforms
-    // cv::Mat relative_tf = motion_estimate(this->kps_prev, kps, matches, *depth_prev_ptr);
-    // global_tf = global_tf * relative_tf;
+    cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr);
+    global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    // visualize_trajectory(global_tf);
+    visualize_trajectory(global_tf);
 
     // update prev images
     *color_prev_ptr = color_img;

@@ -14,6 +14,9 @@ VO::~VO() {
 // Constructor of the VO class
 VO::VO(): rclcpp::Node("vo_node")
 {
+    color_prev_ptr = std::make_unique<cv::Mat>();
+    depth_prev_ptr = std::make_unique<cv::Mat>();
+
     // ROS publishers and subscribers
     matches_publisher_ = this->create_publisher<Image>("/matches", 10);
 
@@ -39,12 +42,15 @@ VO::VO(): rclcpp::Node("vo_node")
     std::string feature = "sift";
 
     if( feature == "sift" ){
-        feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
+        // feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
+        feature_extractor = cv::SIFT::create();
     }
     else{
-        feature_extractor = cv::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
-
+        // feature_extractor = cv::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
+        feature_extractor = cv::ORB::create();
     }
+
+    
 
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "OpenCV Version: ", CV_VERSION);
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Created new VO Object.");
@@ -58,21 +64,28 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
 
-    if( !color_prev_ptr && !depth_prev_ptr){
-        color_prev_ptr = std::make_unique<cv::Mat>(color_img);
-        depth_prev_ptr = std::make_unique<cv::Mat>(depth_img);
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_img.rows, color_img.cols);
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_img.rows, depth_img.cols);
 
-        feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), this->kps_prev, this->desc_prev);
+    // first time initialization check
+    if (color_prev_ptr->empty() && depth_prev_ptr->empty()) {
+        *color_prev_ptr = color_img.clone();
+        *depth_prev_ptr = depth_img.clone();
+
+        RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_prev_ptr->rows, color_prev_ptr->cols);
+        RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_prev_ptr->rows, depth_prev_ptr->cols);
+        feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), kps_prev, desc_prev);
     }
 
-
     // get features
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "extracting features");
     std::vector<cv::KeyPoint> kps;
-    std::vector<cv::Mat> desc;
+    cv::Mat desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
     // get matches
+    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "getting matches");
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
     draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
@@ -88,8 +101,8 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     // update prev images
     *color_prev_ptr = color_img;
     *depth_prev_ptr = depth_img;
-    this->kps_prev = kps;
-    this->desc_prev = desc;
+    kps_prev = kps;
+    desc_prev = desc;
 }
 
 cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, bool depth){
@@ -102,8 +115,6 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
     else{
         cv_ptr = cv_bridge::toCvCopy(image_msg, "bgr8");
     }
-
-    RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", cv_ptr->image.size());
 
     return cv_ptr->image;
 
@@ -123,9 +134,7 @@ void VO::draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv:
 }
 
 
-
-void VO::get_matches(const std::vector<cv::Mat>& desc1, const std::vector<cv::Mat>& desc2,
-                        std::vector<cv::DMatch>& good_matches ){
+void VO::get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatch>& good_matches ){
 
     // https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html 
 
@@ -142,7 +151,6 @@ void VO::get_matches(const std::vector<cv::Mat>& desc1, const std::vector<cv::Ma
             good_matches.push_back(knn_matches[i][0]);
         }
     }
-
 }
 
 

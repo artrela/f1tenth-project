@@ -33,37 +33,37 @@ class VO : public rclcpp::Node {
         virtual ~VO();
 
     private:
-    // initializations
-    std::unique_ptr<cv::Mat> color_prev_ptr, depth_prev_ptr;
+        // initializations
+        std::unique_ptr<cv::Mat> color_prev_ptr;
+        std::unique_ptr<cv::Mat> depth_prev_ptr;
 
-    cv::Mat intrinsics;
+        cv::Mat intrinsics;
 
-    std::vector<cv::KeyPoint> kps_prev;
-    std::vector<cv::Mat> desc_prev;
+        std::vector<cv::KeyPoint> kps_prev;
+        cv::Mat desc_prev;
 
-    cv::Mat global_tf;
+        cv::Mat global_tf;
 
-    cv::Ptr<cv::Feature2D> feature_extractor;
+        cv::Ptr<cv::Feature2D> feature_extractor;
 
-    // publishers and subscribers
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr matches_publisher_;
-    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ApproximatePolicy;
-    std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> depth_img_sub;
-    std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> color_img_sub;
-    std::shared_ptr<message_filters::Synchronizer<ApproximatePolicy>> syncApproximate;
+        // publishers and subscribers
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr matches_publisher_;
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ApproximatePolicy;
+        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> depth_img_sub;
+        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> color_img_sub;
+        std::shared_ptr<message_filters::Synchronizer<ApproximatePolicy>> syncApproximate;
 
-    // callback
-    void visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg,
-        const sensor_msgs::msg::Image::ConstSharedPtr& color_msg);
+        // callback
+        void visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg,
+            const sensor_msgs::msg::Image::ConstSharedPtr& color_msg);
 
-    // methods
-    cv::Mat convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, bool depth);
-    void draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, 
-                const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches);
-    void get_matches(const std::vector<cv::Mat>& desc1, const std::vector<cv::Mat>& desc2,
-                        std::vector<cv::DMatch>& good_matches);
-    cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
-        const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
-    void visualize_trajectory();
+        // methods
+        cv::Mat convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, bool depth);
+        void draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, 
+                    const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches);
+        void get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatch>& good_matches);
+        cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
+            const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
+        void visualize_trajectory();
 
 };

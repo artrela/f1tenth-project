@@ -30,6 +30,15 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp> 
 
+// #include "opencv2/core/cuda.hpp"
+// #include "opencv2/cudalegacy.hpp"
+// #include "opencv2/cudalegacy/NCV.hpp"
+// #include "opencv2/cudalegacy/NPP_staging.hpp"
+// #include "opencv2/cudalegacy/NCVPyramid.hpp"
+// #include "opencv2/cudalegacy/NCVHaarObjectDetection.hpp"
+// #include "opencv2/cudalegacy/NCVBroxOpticalFlow.hpp"
+// #include "opencv2/video/background_segm.hpp"
+
 
 using namespace std;
 

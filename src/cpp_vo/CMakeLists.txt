@@ -29,6 +29,7 @@ foreach(PACKAGE
   message_filters
   cv_bridge
   OpenCV
+  CUDA
   )
 
   find_package(${PACKAGE} REQUIRED)
@@ -36,21 +37,20 @@ foreach(PACKAGE
 endforeach()
 
 find_package(OpenCV 3.4.16 REQUIRED)
+# find_package(OpenCV 3.4.16 REQUIRED COMPONENTS core cudalegacy)
 
 # Include Cpp "include" directory
 include_directories(include)
 include_directories(
   ${EIGEN3_INCLUDE_DIRS}
-)
-include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
-
 
 # Create Cpp executable
 add_executable(vo_node src/vo_node.cpp src/vo.cpp)
 target_link_libraries(vo_node ${OpenCV_LIBS})
 # target_link_libraries(vo_node ${EIGEN3_LIBS})
+target_link_libraries(vo_node ${CUDA_LIBRARIES})
 
 ament_target_dependencies(vo_node 
   ament_cmake 

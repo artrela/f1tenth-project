@@ -107,7 +107,7 @@ class VisualOdometry(Node):
         return img
 
     def draw_matches(self, img1, img2, kps1, kps2, matches):
-        match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches[:15], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        match_img = cv.drawMatchesKnn(img1, kps1, img2, kps2, matches[:15], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         self.matches_pub_.publish(self.cv_bridge.cv2_to_imgmsg(match_img, "bgr8"))
 
     def get_features(self, image, detector_type):
@@ -115,9 +115,9 @@ class VisualOdometry(Node):
         get features from image
         """
         if detector_type == 'sift':
-            detector = cv2.SIFT_create()
+            detector = cv.SIFT_create()
         elif detector_type == 'orb':
-            detector = cv2.ORB_create()
+            detector = cv.ORB_create()
 
         keypoints, descriptors = detector.detectAndCompute(image, None)
 
@@ -132,13 +132,17 @@ class VisualOdometry(Node):
         match features between two frames
         """
         # brute-force matching
-        if detector == 'sift':
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
-        elif detector == 'orb':
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        # if detector == 'sift':
+        #     bf = cv.BFMatcher(cv.NORM_L2, crossCheck=False)
+        # elif detector == 'orb':
+        #     bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=False)
+        
+        # flann matching
+        matcher = cv.DescriptorMatcher_create(cv.DescriptorMatcher_FLANNBASED)
 
         # knn match
-        matches = bf.knnMatch(desc1, desc2, k)
+        # matches = bf.knnMatch(desc1, desc2, k)
+        matches = matcher.knnMatch(desc1, desc2, k)
 
         # ratio test
         good_matches = []
@@ -174,7 +178,7 @@ class VisualOdometry(Node):
 
         #TODO depth clipping???
         Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
-        Z /= 1000
+        # Z /= 1000
         # low_depth = Z < 6000
 
         # Z = Z[low_depth]
@@ -199,7 +203,8 @@ class VisualOdometry(Node):
 
             rot_est, t_est = cv.solvePnPRefineLM(world_pts, kp_t_idx, self.intrinsics, None,
                                                 rvec=rot_est, tvec=t_est)
-
+            
+            t_est /= 1000
             transform[0:3, 0:3] = cv.Rodrigues(rot_est)[0]
             transform[0:3, -1] = np.squeeze(t_est)
 
@@ -255,7 +260,7 @@ class VisualOdometry(Node):
         """
         # cwd = os.getcwd()
         # package_share_directory = get_package_share_directory('py_vo')
-        yaml_file_path = os.path.join("/home/atrela/Documents/f1tenth-project/src/py_vo", "config", filename)
+        yaml_file_path = os.path.join("/home/sridevi/Documents/f1tenth-project/src/py_vo", "config", filename)
 
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)

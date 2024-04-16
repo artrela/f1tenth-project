@@ -34,6 +34,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python executables
 install(PROGRAMS
+  scripts/save_pose.py
   scripts/visual_odometry.py
   scripts/fake_origin_frame.py
   DESTINATION lib/${PROJECT_NAME}

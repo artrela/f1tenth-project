@@ -29,7 +29,8 @@ foreach(PACKAGE
   message_filters
   cv_bridge
   OpenCV
-  CUDA
+  # nav2_map_server
+  rviz2
   )
 
   find_package(${PACKAGE} REQUIRED)
@@ -44,6 +45,13 @@ include_directories(include)
 include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+)
+
+# Include launch directory
+install(
+  DIRECTORY
+    launch
+  DESTINATION share/${PROJECT_NAME}/
 )
 
 # Create Cpp executable

@@ -43,7 +43,7 @@ VO::VO(): rclcpp::Node("vo_node")
     std::string feature = "sift";
 
     if( feature == "sift" ){
-        // feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
+        // feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6);
         feature_extractor = cv::SIFT::create();
     }
     else{
@@ -69,6 +69,10 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
 
+    // Create a mask
+    // cv::Mat mask = cv::Mat::zeros(depth_img.size(), CV_8UC1);
+    // int endrow = depth_img.rows * 2 / 3;
+    // cv::rectangle(mask, cv::Point(0, 0), cv::Point(depth_img.cols, endrow), cv::Scalar(255), cv::FILLED);
 
     // first time initialization check
     if (color_prev_ptr->empty() && depth_prev_ptr->empty()) {
@@ -77,12 +81,14 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
         // RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_prev_ptr->rows, color_prev_ptr->cols);
         // RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_prev_ptr->rows, depth_prev_ptr->cols);
         feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), kps_prev, desc_prev);
+        // feature_extractor->detectAndCompute(*color_prev_ptr, mask, kps_prev, desc_prev);
     }
 
     // get features
     std::vector<cv::KeyPoint> kps;
     cv::Mat desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
+    // feature_extractor->detectAndCompute(color_img, mask, kps, desc);
     // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
     // get matches
@@ -118,6 +124,10 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
         cv_ptr = cv_bridge::toCvCopy(image_msg, "bgr8");
     }
 
+    // int startRow = cv_ptr->image.rows / 3;  // Starting from half of the image height
+    // cv::Rect roi(0, startRow, cv_ptr->image.cols, cv_ptr->image.rows - startRow);
+    // cv_ptr->image(roi).setTo(cv::Scalar(0, 0, 0));
+
     return cv_ptr->image;
 
 }
@@ -125,7 +135,14 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
 void VO::draw_matches(const cv::Mat& img1, const cv::Mat& img2, const vector<cv::KeyPoint>& kps1, const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches){
 
     vector<cv::DMatch> top_matches;
-    for(size_t i = 0; i < 15; i++){
+    int num_matches;
+    if (matches.size() < 15) {
+        num_matches = top_matches.size();
+    } else {
+        num_matches = 15;
+    }
+
+    for(int i = 0; i < num_matches; i++){
         top_matches.push_back(matches[i]);
     }
 

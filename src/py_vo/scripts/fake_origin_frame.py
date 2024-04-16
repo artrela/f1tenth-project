@@ -20,8 +20,8 @@ class OriginPublisher(Node):
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'map'
         t.child_frame_id = 'origin'
-        t.transform.translation.x = 0.0
-        t.transform.translation.y = 0.0
+        t.transform.translation.x = -0.6288322893676047
+        t.transform.translation.y = 3.736094076704183
         t.transform.translation.z = 0.0
         t.transform.rotation.x = 0.0
         t.transform.rotation.y = 0.0

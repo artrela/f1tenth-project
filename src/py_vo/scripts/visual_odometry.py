@@ -255,7 +255,7 @@ class VisualOdometry(Node):
         """
         # cwd = os.getcwd()
         # package_share_directory = get_package_share_directory('py_vo')
-        yaml_file_path = os.path.join("/home/atrela/Documents/f1tenth-project/src/py_vo", "config", filename)
+        yaml_file_path = os.path.join("/home/sridevi/Documents/f1tenth-project/src/py_vo/config/vo_config.yaml")
 
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)

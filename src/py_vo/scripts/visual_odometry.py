@@ -62,6 +62,10 @@ class VisualOdometry(Node):
 
         self.traj_marker = Path()
         self.traj_marker.header.frame_id = "origin"
+
+        self.lk_params = dict(winSize=(15, 15),
+                maxLevel=2,
+                criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
         
 
         self.visualize_trajectory(self.global_transform)
@@ -80,21 +84,65 @@ class VisualOdometry(Node):
         if self.color_prev is None:
             self.color_prev = color_img
             self.depth_prev = depth_img
+            self.kp_prev = cv.goodFeaturesToTrack(self.color_prev, mask = None, 
+                                            maxCorners = 1000, qualityLevel = 0.01, 
+                                            minDistance = 8, blockSize = 21, 
+                                            useHarrisDetector = False, k = 0.05)
             return
 
-        kps_prev, desc_prev = self.get_features(self.color_prev, self.detector)
-        kps, desc = self.get_features(color_img, self.detector)
+        # kps_prev, desc_prev = self.get_features(self.color_prev, self.detector)
 
-        matches = self.get_matches(desc_prev, desc, self.detector)
-        self.draw_matches(self.color_prev, color_img, kps_prev, kps, matches)
+        kp, status, err = cv2.calcOpticalFlowPyrLK(self.color_prev, color_img, self.kp_prev, None, **self.lk_params)
 
-        relative_transform = self.motion_estimate(kps_prev, kps, matches, self.depth_prev)
+        # Select only good points
+        kp = kp[status == 1]
+        self.kp_prev = self.kp_prev[status == 1]
+        # good_err = err[status == 1]
+
+        # Determine error threshold (you may adjust this value)
+        # error_threshold = 10.0
+
+        # Filter points based on error threshold
+        # filtered_indices = np.where(good_err < error_threshold)[0]
+
+        # kp = good_kp[filtered_indices]
+        # self.kp_prev = good_kp_prev[filtered_indices]
+
+        # Define the conditions for filteri
+        condition_w = (kp[:, 0] < self.depth_prev.shape[0]-1) & (self.kp_prev[:, 0] < self.depth_prev.shape[0]-1)
+        condition_h = (kp[:, 1] < self.depth_prev.shape[1]-1) & (self.kp_prev[:, 1] < self.depth_prev.shape[1]-1)
+
+        # Apply the conditions to filter keypoints
+        kp = kp[condition_w & condition_h]
+        self.kp_prev = self.kp_prev[condition_w & condition_h]
+
+        condition_w = (kp[:, 0] < self.depth_prev.shape[0]-1) & (self.kp_prev[:, 0] < self.depth_prev.shape[0]-1)
+        condition_h = (kp[:, 1] < self.depth_prev.shape[1]-1) & (self.kp_prev[:, 1] < self.depth_prev.shape[1]-1)
+
+        # print(condition_h, condition_w)
+
+        # print(np.where((kp[:, 0] > self.depth_prev.shape[0]-1) & (kp[:, 1] > self.depth_prev.shape[0]-1))[0].shape)
+
+        if len(kp) < 25:
+            self.color_prev = color_img.copy()
+            self.depth_prev = depth_img.copy()
+            self.kp_prev = cv.goodFeaturesToTrack(self.color_prev, mask = None, 
+                                            maxCorners = 1000, qualityLevel = 0.01, 
+                                            minDistance = 10, blockSize = 21, 
+                                            useHarrisDetector = False, k = 0.05)
+            return
+        
+        self.draw_matches(self.color_prev, color_img, self.kp_prev, kp, [])
+
+        relative_transform = self.motion_estimate(self.kp_prev, kp, [], self.depth_prev)
         self.global_transform = self.global_transform @ relative_transform
         
         self.visualize_trajectory(self.global_transform)
 
-        self.color_prev = color_img
-        self.depth_prev = depth_img
+        self.color_prev = color_img.copy()
+        self.depth_prev = depth_img.copy()
+        self.kp_prev = kp.reshape(-1, 1, 2)
+        # print("after match ", kp.shape, self.kps.shape)
 
 
     def convert_image(self, image_msg, depth=False):
@@ -103,12 +151,26 @@ class VisualOdometry(Node):
             img = np.array(img.data).reshape((image_msg.height, image_msg.width))
         else:
             img = self.cv_bridge.imgmsg_to_cv2(image_msg, "bgr8")
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
 
         return img
 
     def draw_matches(self, img1, img2, kps1, kps2, matches):
-        match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches[:15], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        self.matches_pub_.publish(self.cv_bridge.cv2_to_imgmsg(match_img, "bgr8"))
+
+        color = np.random.randint(0, 255, (len(kps1), 3))
+        mask = np.zeros_like(img1)
+
+        for i, (new, old) in enumerate(zip(kps1, kps2)):
+
+            a, b = new.ravel()
+            c, d = old.ravel()
+            mask = cv.line(mask, (int(a), int(b)), (int(c), int(d)), color[i].tolist(), 2)
+            img2 = cv.circle(img2, (int(a), int(b)), 5, color[i].tolist(), -1)
+            img1 = cv.add(img2, mask)
+
+        # match_img = cv2.drawMatchesKnn(img1, kps1, img2, kps2, matches[:15], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        self.matches_pub_.publish(self.cv_bridge.cv2_to_imgmsg(cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR), "bgr8"))
 
     def get_features(self, image, detector_type):
         """
@@ -154,14 +216,14 @@ class VisualOdometry(Node):
 
         transform = np.eye(4)
 
-        if len(matches) < 4:
-            self.get_logger().warning("Less than 4 matches! Cannot attempt PnP...")
-            return transform
+        # if len(matches) < 4:
+        #     self.get_logger().warning("Less than 4 matches! Cannot attempt PnP...")
+        #     return transform
         
 
         #TODO should depth image be for tprev or t?
-        kp_tprev_idx = np.array([ kp_tprev[m[0].queryIdx].pt for m in matches], dtype=int)
-        kp_t_idx = np.array([ kp_t[m[0].trainIdx].pt for m in matches], dtype=float)
+        kp_tprev_idx = kp_tprev#np.array([ k.pt for k in kp_tprev], dtype=int)
+        kp_t_idx = kp_t#np.array([ k.pt for k in kp_t], dtype=float)
 
 
         '''
@@ -173,8 +235,8 @@ class VisualOdometry(Node):
         '''
 
         #TODO depth clipping???
-        Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
-        Z /= 1000
+        Z = depth_t_prev[kp_tprev_idx[:, 0].astype(int), kp_tprev_idx[:, 1].astype(int)]
+        Z = Z / 1000
         # low_depth = Z < 6000
 
         # Z = Z[low_depth]
@@ -261,7 +323,7 @@ class VisualOdometry(Node):
             data = yaml.safe_load(file)
         
         self.intrinsics = np.array(data['intrinsics'])
-        self.detector = data['detector']
+        self.detector = "orb"
 
 def main(args=None):
 

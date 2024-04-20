@@ -174,7 +174,7 @@ class VisualOdometry(Node):
 
         #TODO depth clipping???
         Z = depth_t_prev[kp_tprev_idx[:, 1], kp_tprev_idx[:, 0]]
-        Z /= 1000
+        Z = Z / 1000
         # low_depth = Z < 6000
 
         # Z = Z[low_depth]

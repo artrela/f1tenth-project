@@ -29,6 +29,7 @@
 #include "sensor_msgs/image_encodings.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp> 
+#include <opencv2/core/types.hpp>
 
 
 using namespace std;
@@ -53,6 +54,7 @@ class VO : public rclcpp::Node {
 
         // publishers and subscribers
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr matches_publisher_;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr tracking_publisher_;
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ApproximatePolicy;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> depth_img_sub;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> color_img_sub;
@@ -71,5 +73,6 @@ class VO : public rclcpp::Node {
         cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
         const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
         void visualize_trajectory(cv::Mat tf);
+        void display_tracking(const cv::Mat img_prev, std::vector<cv::KeyPoint>&  kp_prev, std::vector<cv::KeyPoint>&  kp);
 
 };

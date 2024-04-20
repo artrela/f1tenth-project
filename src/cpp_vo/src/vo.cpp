@@ -19,6 +19,7 @@ VO::VO(): rclcpp::Node("vo_node")
 
     // ROS publishers and subscribers
     matches_publisher_ = this->create_publisher<Image>("/matches", 10);
+    tracking_publisher_ = this->create_publisher<Image>("/tracked_matches", 10);
 
     depth_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/aligned_depth_to_color/image_raw");
     color_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/color/image_raw");
@@ -89,6 +90,7 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
     draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
+    display_tracking(color_img, kps_prev, kps);
     // cout << good_matches.size() << endl;
     // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
 
@@ -216,6 +218,34 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
 }
 
+void VO::display_tracking(const cv::Mat img_prev, 
+                    std::vector<cv::KeyPoint>&  kp_prev,
+                    std::vector<cv::KeyPoint>&  kp)
+{
+    int radius = 2;
+    cv::Mat vis = img_prev.clone();
+    
+    for (int i = 0; i < kp_prev.size(); i++)
+    {
+        cv::circle(vis, cv::Point(kp_prev[i].pt.y, kp_prev[i].pt.x), radius, CV_RGB(0,255,0));
+    }
+    for (int i = 0; i < kp.size(); i++)
+    {
+        cv::circle(vis, cv::Point(kp[i].pt.y, kp[i].pt.x), radius, CV_RGB(255,0,0));
+    }
+    // for (int i = 0; i < kp.size(); i++)
+    // {   
+    //     cv::Point start(kp_prev[i].pt.y, kp_prev[i].pt.x);
+    //     cv::Point end(kp[i].pt.y, kp[i].pt.x);
+    //     cv::line(vis, start, end, CV_RGB(0,255,0));
+    // }
+
+    sensor_msgs::msg::Image::SharedPtr msg =
+            cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", vis)
+                .toImageMsg();
+
+    tracking_publisher_->publish(*msg);
+}
 
 void VO::visualize_trajectory(cv::Mat tf){
     Eigen::Matrix4d eigen_mat;

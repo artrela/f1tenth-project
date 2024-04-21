@@ -36,6 +36,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/visual_odometry.py
   scripts/fake_origin_frame.py
+  scripts/frame_link.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

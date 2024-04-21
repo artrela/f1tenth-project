@@ -14,8 +14,10 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
+#include "tf2_ros/transform_broadcaster.h"
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -51,6 +53,7 @@ class VO : public rclcpp::Node {
         cv::Ptr<cv::Feature2D> feature_extractor;
         visualization_msgs::msg::MarkerArray pose_markers;
         nav_msgs::msg::Path traj_path;
+        nav_msgs::msg::Odometry curr_pose;
 
         // publishers and subscribers
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr matches_publisher_;
@@ -60,6 +63,10 @@ class VO : public rclcpp::Node {
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> color_img_sub;
         std::shared_ptr<message_filters::Synchronizer<ApproximatePolicy>> syncApproximate;    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr poses_viz_pub;
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr traj_viz_pub;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pose_pub;
+
+        std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+        
 
         // callback
         void visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg,
@@ -72,7 +79,7 @@ class VO : public rclcpp::Node {
         void get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatch>& good_matches);
         cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
         const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
-        void visualize_trajectory(cv::Mat tf);
+        void publish_position(cv::Mat tf);
         void display_tracking(const cv::Mat img_prev, std::vector<cv::KeyPoint>&  kp_prev, std::vector<cv::KeyPoint>&  kp);
 
 };

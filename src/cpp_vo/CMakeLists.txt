@@ -18,7 +18,10 @@ endif()
 # find dependencies
 # Find dependencies
 foreach(PACKAGE 
-  ament_cmake 
+  ament_cmake
+  ament_cmake_python
+  tf2_ros
+  tf2
   rclcpp
   std_msgs
   visualization_msgs
@@ -39,6 +42,7 @@ find_package(OpenCV 3.4.16 REQUIRED)
 
 # Include Cpp "include" directory
 include_directories(include)
+
 include_directories(
   ${EIGEN3_INCLUDE_DIRS}
 )
@@ -64,6 +68,8 @@ ament_target_dependencies(vo_node
   message_filters
   cv_bridge
   OpenCV 
+  tf2
+  tf2_ros
 )
 
 # Install Cpp executables
@@ -82,5 +88,10 @@ if(BUILD_TESTING)
   #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 ament_package()

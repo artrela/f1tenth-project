@@ -30,6 +30,14 @@ VO::VO(): rclcpp::Node("vo_node")
     syncApproximate->registerCallback(std::bind(&VO::visual_odom_callback, this, std::placeholders::_1, std::placeholders::_2));
     poses_viz_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/poses_viz", 10);
     traj_viz_pub = this->create_publisher<nav_msgs::msg::Path>("/traj_viz", 10);
+    pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("/visual_odometry/pose", 10);
+
+    tf_broadcaster_ =
+      std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+
+    curr_pose.header.frame_id = "map";
+    curr_pose.child_frame_id = "camera_imu_optical_frame";
 
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
@@ -56,7 +64,7 @@ VO::VO(): rclcpp::Node("vo_node")
     pose_markers = visualization_msgs::msg::MarkerArray();
     traj_path = nav_msgs::msg::Path();
     traj_path.header.frame_id = "origin";
-    visualize_trajectory(global_tf);
+    publish_position(global_tf);
 
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "OpenCV Version: ", CV_VERSION);
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Created new VO Object.");
@@ -100,7 +108,7 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    visualize_trajectory(global_tf);
+    publish_position(global_tf);
 
     // update prev images
     *color_prev_ptr = color_img;
@@ -247,7 +255,8 @@ void VO::display_tracking(const cv::Mat img_prev,
     tracking_publisher_->publish(*msg);
 }
 
-void VO::visualize_trajectory(cv::Mat tf){
+void VO::publish_position(cv::Mat tf){
+    
     Eigen::Matrix4d eigen_mat;
     cv::cv2eigen(tf, eigen_mat);
     Eigen::Isometry3d eigen_tf = Eigen::Isometry3d(eigen_mat);
@@ -277,8 +286,46 @@ void VO::visualize_trajectory(cv::Mat tf){
     traj_marker.pose.position.z = eigen_tf.translation().z();
     traj_path.poses.push_back(traj_marker);
 
+    curr_pose.header.stamp = this->get_clock()->now();
+    curr_pose.pose.pose.position.x = eigen_tf.translation().x();
+    curr_pose.pose.pose.position.y = eigen_tf.translation().y();
+    curr_pose.pose.pose.position.z = eigen_tf.translation().z();
+    curr_pose.pose.pose.orientation.x = eigen_quat.x();
+    curr_pose.pose.pose.orientation.y = eigen_quat.y();
+    curr_pose.pose.pose.orientation.z = eigen_quat.z();
+    curr_pose.pose.pose.orientation.w = eigen_quat.w();
+
     poses_viz_pub->publish(pose_markers);
     traj_viz_pub->publish(traj_path);
+    pose_pub->publish(curr_pose);
+
+    geometry_msgs::msg::TransformStamped t;
+
+    // Read message content and assign it to
+    // corresponding tf variables
+    t.header.stamp = this->get_clock()->now();
+    t.header.frame_id = "origin";
+    t.child_frame_id = "camera_imu_optical_frame";
+
+    // Turtle only exists in 2D, thus we get x and y translation
+    // coordinates from the message and set the z coordinate to 0
+    t.transform.translation.x = eigen_tf.translation().x();
+    t.transform.translation.y = eigen_tf.translation().y();
+    t.transform.translation.z = eigen_tf.translation().z();
+
+    // For the same reason, turtle can only rotate around one axis
+    // and this why we set rotation in x and y to 0 and obtain
+    // rotation in z axis from the message
+    tf2::Quaternion q;
+    t.transform.rotation.x = eigen_quat.x();
+    t.transform.rotation.y = eigen_quat.y();
+    t.transform.rotation.z = eigen_quat.z();
+    t.transform.rotation.w = eigen_quat.w();
+
+    // Send the transformation
+    tf_broadcaster_->sendTransform(t);
+    std::cout << "transform sent!!!!!!" << std::endl;
+    
 }
 
 

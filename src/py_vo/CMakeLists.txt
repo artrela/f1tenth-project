@@ -17,10 +17,10 @@ endif()
 
 # Find dependencies
 foreach(PACKAGE 
-  ament_cmake 
+  ament_cmake
   ament_cmake_python
   rclcpp
-  rclpy 
+  rclpy
   message_filters
   sensor_msgs
   std_msgs)
@@ -34,6 +34,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python executables
 install(PROGRAMS
+  scripts/transform_imu_axes.py
   scripts/visual_odometry.py
   scripts/fake_origin_frame.py
   scripts/frame_link.py

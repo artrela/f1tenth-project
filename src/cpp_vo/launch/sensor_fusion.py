@@ -19,31 +19,47 @@ def generate_launch_description():
             name='visual_odometry_node'
         ),
         Node(
-            package='realsense2_camera',
-            namespace='realsense', 
-            executable='realsense2_camera_node',
-            name='realsense_camera',
-            parameters=[
-                {'pointcloud.enable': True},
-                {'enable_gyro': True},
-                {'enable_accel': True},
-                {'align_depth.enable': True},
-                {'unite_imu_method': 2},
-            ]
+            package='py_vo',
+            executable='transform_imu_axes.py',
+            name='visual_odometry_node'
         ),
+        # Node(
+        #     package='realsense2_camera',
+            # namespace='camera', 
+        #     executable='realsense2_camera_node',
+        #     name='realsense_camera',
+        #     parameters=[
+        #         {'pointcloud.enable': True},
+        #         {'enable_gyro': True},
+        #         {'enable_accel': True},
+        #         {'align_depth.enable': True},
+        #         {'unite_imu_method': 2},
+        #     ]
+        # ),
         Node(
             package='robot_localization',
             executable='ekf_node',
             name='sensor_fusion_node',
             parameters=[
-                {"imu0": "/realsense/imu"},
+                {"imu0": "/imu/data_enu"}, #madgwick
+                # {"imu0": "/camera/imu"}, #raw
                 {"odom0": "/visual_odometry/pose"},
-                # x, y, yaw
+                # # x, y, yaw
+                # {"imu0_config": [False, False, False,
+                #                 False, False, False,
+                #                 False, False, False,
+                #                 False, False, True,
+                #                 True, True, False]},
+                # {"odom0_config": [True, True, False,
+                #                 False, False, True,
+                #                 False, False, False,
+                #                 False, False, False,
+                #                 False, False, False]},
                 {"imu0_config": [False, False, False,
                                 False, False, False,
                                 False, False, False,
-                                False, False, True,
-                                True, True, False]},
+                                True, True, True,
+                                False, False, False]},
                 {"odom0_config": [True, True, False,
                                 False, False, True,
                                 False, False, False,
@@ -55,8 +71,27 @@ def generate_launch_description():
                 {"imu0_remove_gravitational_acceleration": True},
                 {"print_diagnostics": True},
                 {'base_link_frame': 'camera_imu_optical_frame'},
-                {'odom_frame': 'origin'},
-                {'world_frame': 'origin'}
+                {'odom_frame': 'odom'},
+                {'world_frame': 'origin'},
+                {'dynamic_process_noise_covariance': True},
+                {'process_noise_covariance':
+                    [0.01, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0.01, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0.01, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0.01, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0.01,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0.01,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0.01,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0.01,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0.01,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0.01,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0.01,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0.01,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.01,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.01]
+                }
             ]
         )
-    ])
+    ]
+)

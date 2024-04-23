@@ -41,7 +41,7 @@ VO::VO(): rclcpp::Node("vo_node")
 
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
-    global_tf.col(3).setTo(cv::Scalar(1));
+    // global_tf.col(3).setTo(cv::Scalar(1));
 
     // set intrinsics values
     intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
@@ -77,7 +77,6 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     // convert image
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
-
 
     // first time initialization check
     if (color_prev_ptr->empty() && depth_prev_ptr->empty()) {

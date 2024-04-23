@@ -4,18 +4,25 @@
 #include <cmath>
 #include <vector>
 #include <memory>
+#include <cstdint>
 
 #include "rclcpp/rclcpp.hpp"
+
 #include "message_filters/time_synchronizer.h"
 #include "message_filters/subscriber.h"
 #include "message_filters/synchronizer.h"
 #include "message_filters/sync_policies/approximate_time.h"
+
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
+
 #include "geometry_msgs/msg/pose_stamped.hpp"
+
 #include "nav_msgs/msg/path.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/image_encodings.hpp"
 
 #include "tf2_ros/transform_broadcaster.h"
 #include <tf2/LinearMath/Quaternion.h>
@@ -24,14 +31,15 @@
 #include <Eigen/Geometry>
 
 #include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include "opencv2/features2d.hpp"
-#include "image_transport/image_transport.hpp"
-#include <cv_bridge/cv_bridge.h>
-#include "sensor_msgs/image_encodings.hpp"
-#include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp> 
 #include <opencv2/core/types.hpp>
+#include <opencv2/core/base.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/calib3d.hpp>
+
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.hpp>
 
 
 using namespace std;
@@ -54,6 +62,8 @@ class VO : public rclcpp::Node {
         visualization_msgs::msg::MarkerArray pose_markers;
         nav_msgs::msg::Path traj_path;
         nav_msgs::msg::Odometry curr_pose;
+        std::string feature;
+        bool skip;
 
         // publishers and subscribers
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr matches_publisher_;
@@ -78,8 +88,8 @@ class VO : public rclcpp::Node {
                     const vector<cv::KeyPoint>& kps2, vector<cv::DMatch>& matches);
         void get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatch>& good_matches);
         cv::Mat motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
-        const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev);
+        const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev, const cv::Mat& color_prev);
         void publish_position(cv::Mat tf);
-        void display_tracking(const cv::Mat img_prev, std::vector<cv::KeyPoint>&  kp_prev, std::vector<cv::KeyPoint>&  kp);
+        void display_tracking(const cv::Mat img_prev, std::vector<cv::Point2f>&  kp_prev, std::vector<cv::Point2f>&  kp, const size_t vis_count);
 
 };

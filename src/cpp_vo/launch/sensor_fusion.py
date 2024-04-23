@@ -8,6 +8,11 @@ def generate_launch_description():
             executable='vo_node',
             name='visual_odometry_node'
         ),
+        # Node(
+        #     package='py_vo',
+        #     executable='visual_odometry.py',
+        #     name='visual_odometry_node'
+        # ),
         Node(
             package='py_vo',
             executable='fake_origin_frame.py',
@@ -20,8 +25,8 @@ def generate_launch_description():
         ),
         Node(
             package='realsense2_camera',
-            namespace='realsense', 
             executable='realsense2_camera_node',
+            namespace='camera',
             name='realsense_camera',
             parameters=[
                 {'pointcloud.enable': True},
@@ -29,6 +34,11 @@ def generate_launch_description():
                 {'enable_accel': True},
                 {'align_depth.enable': True},
                 {'unite_imu_method': 2},
+                # enables higher fps https://support.intelrealsense.com/hc/en-us/community/posts/360050831934-Higher-RGB-and-Depth-FPS
+                {'rgb_camera.color_profile': '848x480'},
+                {"depth_fps": 60},
+                {"color_fps": 60},
+                # https://github.com/IntelRealSense/realsense-ros/issues/599
             ]
         ),
         Node(
@@ -36,23 +46,23 @@ def generate_launch_description():
             executable='ekf_node',
             name='sensor_fusion_node',
             parameters=[
-                {"imu0": "/realsense/imu"},
+                # {"imu0": "/camera/imu"},
                 {"odom0": "/visual_odometry/pose"},
                 # x, y, yaw
-                {"imu0_config": [False, False, False,
-                                False, False, False,
-                                False, False, False,
-                                False, False, True,
-                                True, True, False]},
+                # {"imu0_config": [False, False, False,
+                #                 False, False, False,
+                #                 False, False, False,
+                #                 False, False, True,
+                #                 True, True, False]},
                 {"odom0_config": [True, True, False,
                                 False, False, True,
                                 False, False, False,
                                 False, False, False,
                                 False, False, False]},
                 {"two_d_mode": True},
-                {"imu0_relative": True},
+                # {"imu0_relative": True},
                 {"odom0_relative": True},
-                {"imu0_remove_gravitational_acceleration": True},
+                # {"imu0_remove_gravitational_aFcceleration": True},
                 {"print_diagnostics": True},
                 {'base_link_frame': 'camera_imu_optical_frame'},
                 {'odom_frame': 'origin'},

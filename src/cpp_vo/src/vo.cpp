@@ -41,23 +41,31 @@ VO::VO(): rclcpp::Node("vo_node")
 
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
+<<<<<<< HEAD
     // global_tf.col(3).setTo(cv::Scalar(1));
+=======
+>>>>>>> alec-cpp
 
     // set intrinsics values
-    intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
-                                            0, 605.257568359375, 239.6647491455078,
+    // intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
+    //                                         0, 605.257568359375  , 239.6647491455078,
+    //                                         0.0, 0.0, 1.0);
+    intrinsics = (cv::Mat_<double>(3, 3) <<  905.43359375, 0, 639.9384765625,
+                                            0, 905.3507080078125, 356.8575134277344,
                                             0.0, 0.0, 1.0);
+    // intrinsics = (cv::Mat_<double>(3, 3) <<  426.876, 0, 426.593,
+    //                                         0, 426.593, 238.275,
+    //                                         0.0, 0.0, 1.0);
     
     // TODO: turn to rosparam
-    std::string feature = "sift";
+    feature = "sift";
+    skip = true;
 
     if( feature == "sift" ){
-        // feature_extractor = cv::SIFT::create(200, 3, 0.04, 10, 1.6, false);
-        feature_extractor = cv::SIFT::create();
+        feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 1.6);
     }
     else{
-        // feature_extractor = cv::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
-        feature_extractor = cv::ORB::create();
+        feature_extractor = cv::ORB::create(1500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
     }
 
     // visualizing pose chain
@@ -82,28 +90,35 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     if (color_prev_ptr->empty() && depth_prev_ptr->empty()) {
         *color_prev_ptr = color_img.clone();
         *depth_prev_ptr = depth_img.clone();
-        // RCLCPP_INFO(rclcpp::get_logger("VO"), "Color image size: %d x %d", color_prev_ptr->rows, color_prev_ptr->cols);
-        // RCLCPP_INFO(rclcpp::get_logger("VO"), "Depth image size: %d x %d", depth_prev_ptr->rows, depth_prev_ptr->cols);
         feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), kps_prev, desc_prev);
+    }
+
+    if( skip ){
+        skip = false;
+        return;
+    }
+    else{
+        skip = true;
     }
 
     // get features
     std::vector<cv::KeyPoint> kps;
     cv::Mat desc;
     feature_extractor->detectAndCompute(color_img, cv::noArray(), kps, desc);
-    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Features!");
     
+    // Convert binary descriptors to float type
+    if (feature == "orb") {
+        desc.convertTo(desc, CV_32F);
+        desc_prev.convertTo(desc_prev, CV_32F);
+    }
+
     // get matches
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
-    draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
-    display_tracking(color_img, kps_prev, kps);
-    // cout << good_matches.size() << endl;
-    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "Got Matches!");
+    // draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
 
     // get transforms
-    // cout << good_matches.size() << endl;
-    cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr);
+    cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr, color_img);
     global_tf = global_tf * relative_tf;
 
     // visualize trajectory
@@ -119,15 +134,18 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
 cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_msg, bool depth){
 
     cv_bridge::CvImagePtr cv_ptr;
+    cv::Mat img;
 
     if( depth ){
         cv_ptr = cv_bridge::toCvCopy(image_msg, "16UC1");
+        // cv::GaussianBlur(cv_ptr->image, img, cv::Size(7, 7), 2, 2, cv::BORDER_CONSTANT);
     }
     else{
         cv_ptr = cv_bridge::toCvCopy(image_msg, "bgr8");
     }
+    img = cv_ptr->image;
 
-    return cv_ptr->image;
+    return img;
 
 }
 
@@ -154,7 +172,6 @@ void VO::get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatc
 
     // https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html 
 
-
     cv::Ptr<cv::DescriptorMatcher> matcher = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
     std::vector<std::vector<cv::DMatch>> knn_matches;
     matcher->knnMatch( desc1, desc2, knn_matches, 2 );
@@ -170,15 +187,9 @@ void VO::get_matches(const cv::Mat& desc1, cv::Mat& desc2, std::vector<cv::DMatc
 
 
 cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<cv::KeyPoint>& kp_t,
-    const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev)
+    const vector<cv::DMatch>& matches, const cv::Mat& depth_t_prev, const cv::Mat& color_prev)
 {
-    cv::Mat tf = cv::Mat::eye(4, 4, CV_64F);
-
-    // check for at least 4 matches
-    if (matches.size() < 4) {
-        RCLCPP_INFO(rclcpp::get_logger("VO"), "Less than 4 matches! Cannot attempt PnP");
-        return tf;
-    }
+    cv::Mat tf = cv::Mat::eye(4, 4, CV_64F);       
 
     std::vector<cv::Point2f> kp_tprev_idx, kp_t_idx;
     std::vector<cv::Point3f> world_pts;
@@ -191,24 +202,60 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
         // get depth value at keypoint coords
         // IMPORTANT: https://github.com/IntelRealSense/realsense-ros/issues/807#issuecomment-529909735 
-        auto Z = depth_t_prev.at<u_int16_t>(pt_prev.y, pt_prev.x);
-        Z /= 1000; // mm t0 m
-        
+        uint16_t Z = depth_t_prev.at<uint16_t>(pt_prev.y, pt_prev.x);
+        // RCLCPP_INFO(rclcpp::get_logger("VO"), "ORIGINAL Z: %u" , Z);
+
+        // per orbslam2, if Z > 40 * baseline (50mm) cannot track, lets be liberal on that here
+        // https://www.framos.com/en/products/depth-camera-d435i-bulk-22610 
+        if( Z < 1 || Z < 200 ){
+            continue;
+        }
+
+        // https://github.com/IntelRealSense/realsense-ros/issues/2464
+        // get value in meters
+        Z /= 1000;
+
         // get world coordinates from intrinsics
-        float X = Z * (pt_prev.x - intrinsics.at<double>(0, 2)) / intrinsics.at<double>(0, 0);
-        float Y = Z * (pt_prev.y - intrinsics.at<double>(1, 2)) / intrinsics.at<double>(1, 1);
+        double X = Z * (pt_prev.x - intrinsics.at<double>(0, 2)) / intrinsics.at<double>(0, 0);
+        double Y = Z * (pt_prev.y - intrinsics.at<double>(1, 2)) / intrinsics.at<double>(1, 1);
 
         world_pts.push_back(cv::Point3f(X, Y, Z));
         kp_t_idx.push_back(pt_current);
+        kp_tprev_idx.push_back(pt_prev);
 
     }
 
+    display_tracking(color_prev, kp_tprev_idx, kp_t_idx, 100);
+
+    if( world_pts.size() < 4 ){
+        RCLCPP_INFO(rclcpp::get_logger("VO"), "Less than 4 matches! Cannot attempt PnP");
+        return tf;
+    }
+
     // use solve PnP RANSAC to get rvec and tvec
+    /*
+    InputArray 	imagePoints,
+    InputArray 	cameraMatrix,
+    InputArray 	distCoeffs,
+    OutputArray 	rvec,
+    OutputArray 	tvec,
+    bool 	useExtrinsicGuess = false,
+    int 	iterationsCount = 100,
+    float 	reprojectionError = 8.0,
+    double 	confidence = 0.99,
+    OutputArray 	inliers = noArray(),
+    int 	flags = SOLVEPNP_ITERATIVE 
+    */
+
     cv::Mat rvec, tvec;
-    bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
+    // bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
+    bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec, false,
+                                        300, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
+
+    double norm = cv::norm(tvec, cv::NORM_L2, cv::noArray());
 
     // make tf matrix
-    if (success) {
+    if (success && norm > 0.01 && norm < 1.0) {
 
         cv::solvePnPRefineLM(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
 
@@ -217,7 +264,14 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
         R.copyTo(tf(cv::Rect(0, 0, 3, 3)));
         tvec.copyTo(tf(cv::Rect(3, 0, 1, 3)));
 
-    } else {
+    }
+    else if(success && norm < 0.01){
+        RCLCPP_INFO(rclcpp::get_logger("VO"), "Skipping PnP Pose Estimate, too Small!");
+    }
+    else if(success && norm > 1.0){
+        RCLCPP_INFO(rclcpp::get_logger("VO"), "PnP Pose Estimate too Large!");
+    }
+    else {
         RCLCPP_INFO(rclcpp::get_logger("VO"), "PnP Pose Estimate Failed");
     }
 
@@ -226,26 +280,30 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 }
 
 void VO::display_tracking(const cv::Mat img_prev, 
-                    std::vector<cv::KeyPoint>&  kp_prev,
-                    std::vector<cv::KeyPoint>&  kp)
+                    std::vector<cv::Point2f>&  kp_prev,
+                    std::vector<cv::Point2f>&  kp,
+                    const size_t vis_count)
 {
     int radius = 2;
     cv::Mat vis = img_prev.clone();
+    size_t max = std::min(vis_count, kp_prev.size());
     
-    for (int i = 0; i < kp_prev.size(); i++)
+    for (size_t i = 0; i < max; i++)
     {
-        cv::circle(vis, cv::Point(kp_prev[i].pt.y, kp_prev[i].pt.x), radius, CV_RGB(0,255,0));
+        cv::circle(vis, cv::Point(kp_prev[i].x, kp_prev[i].y), radius, CV_RGB(0,255,0));
     }
-    for (int i = 0; i < kp.size(); i++)
+
+    for (size_t i = 0; i < max; i++)
     {
-        cv::circle(vis, cv::Point(kp[i].pt.y, kp[i].pt.x), radius, CV_RGB(255,0,0));
+        cv::circle(vis, cv::Point(kp[i].x, kp[i].y), radius, CV_RGB(255,0,0));
     }
-    // for (int i = 0; i < kp.size(); i++)
-    // {   
-    //     cv::Point start(kp_prev[i].pt.y, kp_prev[i].pt.x);
-    //     cv::Point end(kp[i].pt.y, kp[i].pt.x);
-    //     cv::line(vis, start, end, CV_RGB(0,255,0));
-    // }
+    
+    for( size_t i = 0; i < max; i++)
+    {  
+        cv::Point start(kp_prev[i].x, kp_prev[i].y);
+        cv::Point end(kp[i].x, kp[i].y);
+        cv::line(vis, start, end, CV_RGB(0,255,0));
+    }
 
     sensor_msgs::msg::Image::SharedPtr msg =
             cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", vis)
@@ -265,9 +323,11 @@ void VO::publish_position(cv::Mat tf){
     pose_marker.header.frame_id = "origin";
     pose_marker.id = pose_markers.markers.size()+1;
     pose_marker.type = 0;
-    pose_marker.pose.position.x = eigen_tf.translation().x();
-    pose_marker.pose.position.y = eigen_tf.translation().y();
-    pose_marker.pose.position.z = eigen_tf.translation().z();
+    // pose_marker.pose.position.x = eigen_tf.translation().x();
+    pose_marker.pose.position.x = eigen_tf.translation().z();
+    pose_marker.pose.position.y = eigen_tf.translation().x();
+    // pose_marker.pose.position.z = eigen_tf.translation()z.();
+    // pose_marker.pose.position.z = eigen_tf.translation().y();
     pose_marker.pose.orientation.x = eigen_quat.x();
     pose_marker.pose.orientation.y = eigen_quat.y();
     pose_marker.pose.orientation.z = eigen_quat.z();
@@ -280,15 +340,18 @@ void VO::publish_position(cv::Mat tf){
     pose_markers.markers.push_back(pose_marker);
 
     auto traj_marker = geometry_msgs::msg::PoseStamped();
-    traj_marker.pose.position.x = eigen_tf.translation().x();
-    traj_marker.pose.position.y = eigen_tf.translation().y();
-    traj_marker.pose.position.z = eigen_tf.translation().z();
+    // traj_marker.pose.position.x = eigen_tf.translation().x();
+    traj_marker.pose.position.x = eigen_tf.translation().z();
+    traj_marker.pose.position.y = eigen_tf.translation().x();
+    // traj_marker.pose.position.z = eigen_tf.translation().z();
+    // traj_marker.pose.position.z = eigen_tf.translation().y();
     traj_path.poses.push_back(traj_marker);
 
     curr_pose.header.stamp = this->get_clock()->now();
-    curr_pose.pose.pose.position.x = eigen_tf.translation().x();
-    curr_pose.pose.pose.position.y = eigen_tf.translation().y();
-    curr_pose.pose.pose.position.z = eigen_tf.translation().z();
+    // curr_pose.pose.pose.position.x = eigen_tf.translation().x();
+    curr_pose.pose.pose.position.x = eigen_tf.translation().z();
+    curr_pose.pose.pose.position.y = eigen_tf.translation().x();
+    // curr_pose.pose.pose.position.z = eigen_tf.translation().z();
     curr_pose.pose.pose.orientation.x = eigen_quat.x();
     curr_pose.pose.pose.orientation.y = eigen_quat.y();
     curr_pose.pose.pose.orientation.z = eigen_quat.z();
@@ -298,32 +361,32 @@ void VO::publish_position(cv::Mat tf){
     traj_viz_pub->publish(traj_path);
     pose_pub->publish(curr_pose);
 
-    geometry_msgs::msg::TransformStamped t;
+    // geometry_msgs::msg::TransformStamped t;
 
-    // Read message content and assign it to
-    // corresponding tf variables
-    t.header.stamp = this->get_clock()->now();
-    t.header.frame_id = "origin";
-    t.child_frame_id = "camera_imu_optical_frame";
+    // // Read message content and assign it to
+    // // corresponding tf variables
+    // t.header.stamp = this->get_clock()->now();
+    // t.header.frame_id = "origin";
+    // t.child_frame_id = "camera_imu_optical_frame";
 
-    // Turtle only exists in 2D, thus we get x and y translation
-    // coordinates from the message and set the z coordinate to 0
-    t.transform.translation.x = eigen_tf.translation().x();
-    t.transform.translation.y = eigen_tf.translation().y();
-    t.transform.translation.z = eigen_tf.translation().z();
+    // // Turtle only exists in 2D, thus we get x and y translation
+    // // coordinates from the message and set the z coordinate to 0
+    // t.transform.translation.x = eigen_tf.translation().x();
+    // t.transform.translation.y = eigen_tf.translation().y();
+    // t.transform.translation.z = eigen_tf.translation().z();
 
-    // For the same reason, turtle can only rotate around one axis
-    // and this why we set rotation in x and y to 0 and obtain
-    // rotation in z axis from the message
-    tf2::Quaternion q;
-    t.transform.rotation.x = eigen_quat.x();
-    t.transform.rotation.y = eigen_quat.y();
-    t.transform.rotation.z = eigen_quat.z();
-    t.transform.rotation.w = eigen_quat.w();
+    // // For the same reason, turtle can only rotate around one axis
+    // // and this why we set rotation in x and y to 0 and obtain
+    // // rotation in z axis from the message
+    // tf2::Quaternion q;
+    // t.transform.rotation.x = eigen_quat.x();
+    // t.transform.rotation.y = eigen_quat.y();
+    // t.transform.rotation.z = eigen_quat.z();
+    // t.transform.rotation.w = eigen_quat.w();
 
-    // Send the transformation
-    tf_broadcaster_->sendTransform(t);
-    std::cout << "transform sent!!!!!!" << std::endl;
+    // // Send the transformation
+    // tf_broadcaster_->sendTransform(t);
+    // std::cout << "transform sent!!!!!!" << std::endl;
     
 }
 

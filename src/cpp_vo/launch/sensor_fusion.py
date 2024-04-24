@@ -34,6 +34,11 @@ def generate_launch_description():
                 {'enable_accel': True},
                 {'align_depth.enable': True},
                 {'unite_imu_method': 2},
+                # enables higher fps https://support.intelrealsense.com/hc/en-us/community/posts/360050831934-Higher-RGB-and-Depth-FPS
+                # {'rgb_camera.color_profile': '848x480'},
+                # {"depth_fps": 60},
+                # {"color_fps": 60},
+                # https://github.com/IntelRealSense/realsense-ros/issues/599
             ]
         ),
         Node(

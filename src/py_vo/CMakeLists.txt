@@ -34,6 +34,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python executables
 install(PROGRAMS
+  scripts/calculate_variance.py
   scripts/transform_imu_axes.py
   scripts/visual_odometry.py
   scripts/fake_origin_frame.py

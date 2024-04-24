@@ -11,7 +11,8 @@ class IMUTransformNode(Node):
         super().__init__('imu_transform_node')
         self.subscription = self.create_subscription(
             Imu,
-            '/camera/imu',
+            # '/camera/imu',
+            '/imu/data',
             self.imu_callback,
             10)
         self.subscription  # prevent unused variable warning
@@ -48,12 +49,11 @@ class IMUTransformNode(Node):
         transformed_msg.linear_acceleration.z = -msg.linear_acceleration.y
 
         # covariance
-        transformed_msg.linear_acceleration_covariance = msg.linear_acceleration_covariance
-        transformed_msg.angular_velocity_covariance = msg.angular_velocity_covariance
+        transformed_msg.linear_acceleration_covariance = [0.0001791136179641669, 0.0, 0.0, 0.0, 0.0001492359730431701, 0.0, 0.0, 0.0, 0.00017867067674247886]
+        transformed_msg.angular_velocity_covariance = [2.9881742333011597e-06, 0.0, 0.0, 0.0, 2.773540802644703e-06, 0.0, 0.0, 0.0, 5.279744031021535e-06]
 
         # Publish the transformed IMU data
         self.publisher.publish(transformed_msg)
-
 
 
 

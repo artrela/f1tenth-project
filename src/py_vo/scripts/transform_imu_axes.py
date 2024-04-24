@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
+import transforms3d
+import math
 
 class IMUTransformNode(Node):
     def __init__(self):
@@ -22,31 +23,38 @@ class IMUTransformNode(Node):
 
     def imu_callback(self, msg):
         # Transform the IMU data to properly orient gravity along the z-axis negatively in ENU
+
+        quat = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
+        euler = transforms3d.euler.quat2euler(quat, axes='sxyz')
+        new_roll = euler[0] - math.pi/2
+        new_pitch = -(euler[1] + math.pi/2)
+        new_quat = transforms3d.euler.euler2quat(new_roll, new_pitch, euler[2], axes='sxyz')
+
         transformed_msg = Imu()
         transformed_msg.header = msg.header
-        # transformed_msg.header.frame_id = "imu_enu"
-
-        # If initial data is (0, -g, 0) and needs to be (0, 0, -g),
-        # then apply a rotation about x-axis and correct the sign
-
-        # Orientation conversion, with hypothetical rotation if needed (example)
-        transformed_msg.orientation.x = msg.orientation.x
-        transformed_msg.orientation.y = msg.orientation.z
-        transformed_msg.orientation.z = msg.orientation.y
-        transformed_msg.orientation.w = msg.orientation.w
+        transformed_msg.orientation.x = new_quat[0]
+        transformed_msg.orientation.y = new_quat[1]
+        transformed_msg.orientation.z = new_quat[2]
+        transformed_msg.orientation.w = new_quat[3]
 
         # Angular velocity conversion
-        transformed_msg.angular_velocity.x = msg.angular_velocity.x
-        transformed_msg.angular_velocity.y = msg.angular_velocity.z
-        transformed_msg.angular_velocity.z = msg.angular_velocity.y
+        transformed_msg.angular_velocity.x =  msg.angular_velocity.z
+        transformed_msg.angular_velocity.y =  msg.angular_velocity.x
+        transformed_msg.angular_velocity.z = -msg.angular_velocity.y
 
-        # Linear acceleration conversion
-        transformed_msg.linear_acceleration.x = msg.linear_acceleration.x
-        transformed_msg.linear_acceleration.y = msg.linear_acceleration.z
-        transformed_msg.linear_acceleration.z = -msg.linear_acceleration.y  # Inverting to align gravity correctly
+        # # Linear acceleration conversion
+        transformed_msg.linear_acceleration.x =  msg.linear_acceleration.z
+        transformed_msg.linear_acceleration.y =  msg.linear_acceleration.x
+        transformed_msg.linear_acceleration.z = -msg.linear_acceleration.y
+
+        transformed_msg.linear_acceleration_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+        transformed_msg.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
 
         # Publish the transformed IMU data
         self.publisher.publish(transformed_msg)
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)

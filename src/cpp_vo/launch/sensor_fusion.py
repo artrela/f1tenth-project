@@ -3,11 +3,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        # Node(
-        #     package='cpp_vo',
-        #     executable='vo_node',
-        #     name='visual_odometry_node'
-        # ),
+        Node(
+            package='cpp_vo',
+            executable='vo_node',
+            name='visual_odometry_node'
+        ),
         Node(
             package='py_vo',
             executable='fake_origin_frame.py',
@@ -46,20 +46,10 @@ def generate_launch_description():
             executable='ekf_node',
             name='sensor_fusion_node',
             parameters=[
-                {"imu0": "/imu/data_enu"}, #madgwick
-                # {"imu0": "/camera/imu"}, #raw
+                # {"imu0": "/imu/data_enu"}, #madgwick
+                {"imu0": "/camera/imu"}, #raw
                 {"odom0": "/visual_odometry/pose"},
                 # # x, y, yaw
-                # {"imu0_config": [False, False, False,
-                #                 False, False, False,
-                #                 False, False, False,
-                #                 False, False, True,
-                #                 True, True, False]},
-                # {"odom0_config": [True, True, False,
-                #                 False, False, True,
-                #                 False, False, False,
-                #                 False, False, False,
-                #                 False, False, False]},
                 {"imu0_config": [False, False, False,
                                 False, False, False,
                                 False, False, False,

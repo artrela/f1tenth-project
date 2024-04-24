@@ -41,10 +41,7 @@ VO::VO(): rclcpp::Node("vo_node")
 
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
-<<<<<<< HEAD
     // global_tf.col(3).setTo(cv::Scalar(1));
-=======
->>>>>>> alec-cpp
 
     // set intrinsics values
     // intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
@@ -207,7 +204,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
         // per orbslam2, if Z > 40 * baseline (50mm) cannot track, lets be liberal on that here
         // https://www.framos.com/en/products/depth-camera-d435i-bulk-22610 
-        if( Z < 1 || Z < 200 ){
+        if( Z < 200 ){
             continue;
         }
 

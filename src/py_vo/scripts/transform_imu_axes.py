@@ -42,11 +42,17 @@ class IMUTransformNode(Node):
         transformed_msg.angular_velocity.x =  msg.angular_velocity.z
         transformed_msg.angular_velocity.y =  msg.angular_velocity.x
         transformed_msg.angular_velocity.z = -msg.angular_velocity.y
+        # transformed_msg.angular_velocity.x = -msg.angular_velocity.x
+        # transformed_msg.angular_velocity.y =  msg.angular_velocity.y
+        # transformed_msg.angular_velocity.z = -msg.angular_velocity.z
 
         # # Linear acceleration conversion
-        transformed_msg.linear_acceleration.x =  msg.linear_acceleration.z
-        transformed_msg.linear_acceleration.y =  msg.linear_acceleration.x
-        transformed_msg.linear_acceleration.z = -msg.linear_acceleration.y
+        # transformed_msg.linear_acceleration.x =  msg.linear_acceleration.z
+        # transformed_msg.linear_acceleration.y =  msg.linear_acceleration.x
+        # transformed_msg.linear_acceleration.z = -msg.linear_acceleration.y
+        transformed_msg.linear_acceleration.x =  msg.linear_acceleration.x
+        transformed_msg.linear_acceleration.y = -msg.linear_acceleration.y
+        transformed_msg.linear_acceleration.z =  msg.linear_acceleration.z
 
         # covariance
         transformed_msg.linear_acceleration_covariance = [0.0001791136179641669, 0.0, 0.0, 0.0, 0.0001492359730431701, 0.0, 0.0, 0.0, 0.00017867067674247886]

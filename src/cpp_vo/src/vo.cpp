@@ -1,10 +1,8 @@
 #include "cpp_vo/vo.h"
 
 using namespace std;
-// using sensor_msgs::msg::Image;
 using namespace sensor_msgs::msg;
 using namespace message_filters;
-// using SyncPolicy = sync_policies::ApproximateTime<Image, Image>;
 
 // Destructor of the VO class
 VO::~VO() {
@@ -21,9 +19,8 @@ VO::VO(): rclcpp::Node("vo_node")
     matches_publisher_ = this->create_publisher<Image>("/matches", 10);
     tracking_publisher_ = this->create_publisher<Image>("/tracked_matches", 10);
 
-    depth_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/aligned_depth_to_color/image_raw");
-    color_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/color/image_raw");
-
+    depth_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/camera/aligned_depth_to_color/image_raw");
+    color_img_sub = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, "/camera/camera/color/image_raw");
     syncApproximate = std::make_shared<message_filters::Synchronizer<ApproximatePolicy>>(ApproximatePolicy(10), *depth_img_sub, *color_img_sub);
 
     syncApproximate->setMaxIntervalDuration(rclcpp::Duration(0, 100000000));  // 0.1 seconds
@@ -32,16 +29,22 @@ VO::VO(): rclcpp::Node("vo_node")
     traj_viz_pub = this->create_publisher<nav_msgs::msg::Path>("/traj_viz", 10);
     pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("/visual_odometry/pose", 10);
 
+    this->declare_parameter("cov_x", 0.2);
+    this->declare_parameter("cov_y", 0.2);
+    this->declare_parameter("cov_yaw", 0.4);
+
+    cov_x = this->get_parameter("cov_x").as_double();
+    cov_y = this->get_parameter("cov_y").as_double();
+    cov_yaw = this->get_parameter("cov_yaw").as_double();
+
     tf_broadcaster_ =
       std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-
 
     curr_pose.header.frame_id = "map";
     curr_pose.child_frame_id = "camera_imu_optical_frame";
 
     // initialize tf values
     global_tf = cv::Mat::eye(4, 4, CV_64F);
-    // global_tf.col(3).setTo(cv::Scalar(1));
 
     // set intrinsics values
     // intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
@@ -56,7 +59,6 @@ VO::VO(): rclcpp::Node("vo_node")
     
     // TODO: turn to rosparam
     feature = "sift";
-    skip = true;
 
     if( feature == "sift" ){
         feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 1.6);
@@ -68,7 +70,7 @@ VO::VO(): rclcpp::Node("vo_node")
     // visualizing pose chain
     pose_markers = visualization_msgs::msg::MarkerArray();
     traj_path = nav_msgs::msg::Path();
-    traj_path.header.frame_id = "origin";
+    traj_path.header.frame_id = "odom";
     publish_position(global_tf);
 
     RCLCPP_INFO(rclcpp::get_logger("VO"), "%s %s\n", "OpenCV Version: ", CV_VERSION);
@@ -77,8 +79,6 @@ VO::VO(): rclcpp::Node("vo_node")
 
 void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg, const sensor_msgs::msg::Image::ConstSharedPtr& color_msg){
     
-    // RCLCPP_INFO(rclcpp::get_logger("VO"), "%s\n", "In Callback!");
-
     // convert image
     cv::Mat color_img = convert_image(color_msg, false);
     cv::Mat depth_img = convert_image(depth_msg, true);
@@ -88,14 +88,6 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
         *color_prev_ptr = color_img.clone();
         *depth_prev_ptr = depth_img.clone();
         feature_extractor->detectAndCompute(*color_prev_ptr, cv::noArray(), kps_prev, desc_prev);
-    }
-
-    if( skip ){
-        skip = false;
-        return;
-    }
-    else{
-        skip = true;
     }
 
     // get features
@@ -200,7 +192,6 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
         // get depth value at keypoint coords
         // IMPORTANT: https://github.com/IntelRealSense/realsense-ros/issues/807#issuecomment-529909735 
         uint16_t Z = depth_t_prev.at<uint16_t>(pt_prev.y, pt_prev.x);
-        // RCLCPP_INFO(rclcpp::get_logger("VO"), "ORIGINAL Z: %u" , Z);
 
         // per orbslam2, if Z > 40 * baseline (50mm) cannot track, lets be liberal on that here
         // https://www.framos.com/en/products/depth-camera-d435i-bulk-22610 
@@ -317,7 +308,7 @@ void VO::publish_position(cv::Mat tf){
     Eigen::Quaterniond eigen_quat(eigen_tf.rotation());
 
     auto pose_marker = visualization_msgs::msg::Marker();
-    pose_marker.header.frame_id = "origin";
+    pose_marker.header.frame_id = "odom";
     pose_marker.id = pose_markers.markers.size()+1;
     pose_marker.type = 0;
     // pose_marker.pose.position.x = eigen_tf.translation().x();
@@ -345,45 +336,22 @@ void VO::publish_position(cv::Mat tf){
     traj_path.poses.push_back(traj_marker);
 
     curr_pose.header.stamp = this->get_clock()->now();
-    // curr_pose.pose.pose.position.x = eigen_tf.translation().x();
     curr_pose.pose.pose.position.x = eigen_tf.translation().z();
     curr_pose.pose.pose.position.y = eigen_tf.translation().x();
-    // curr_pose.pose.pose.position.z = eigen_tf.translation().z();
     curr_pose.pose.pose.orientation.x = eigen_quat.x();
     curr_pose.pose.pose.orientation.y = eigen_quat.y();
     curr_pose.pose.pose.orientation.z = eigen_quat.z();
     curr_pose.pose.pose.orientation.w = eigen_quat.w();
 
+    // Position uncertainty
+    curr_pose.pose.covariance[0] = cov_x;   ///< x
+    curr_pose.pose.covariance[7] = cov_y;   ///< y
+    curr_pose.pose.covariance[35] = cov_yaw;  ///< yaw
+
     poses_viz_pub->publish(pose_markers);
     traj_viz_pub->publish(traj_path);
     pose_pub->publish(curr_pose);
 
-    // geometry_msgs::msg::TransformStamped t;
-
-    // // Read message content and assign it to
-    // // corresponding tf variables
-    // t.header.stamp = this->get_clock()->now();
-    // t.header.frame_id = "origin";
-    // t.child_frame_id = "camera_imu_optical_frame";
-
-    // // Turtle only exists in 2D, thus we get x and y translation
-    // // coordinates from the message and set the z coordinate to 0
-    // t.transform.translation.x = eigen_tf.translation().x();
-    // t.transform.translation.y = eigen_tf.translation().y();
-    // t.transform.translation.z = eigen_tf.translation().z();
-
-    // // For the same reason, turtle can only rotate around one axis
-    // // and this why we set rotation in x and y to 0 and obtain
-    // // rotation in z axis from the message
-    // tf2::Quaternion q;
-    // t.transform.rotation.x = eigen_quat.x();
-    // t.transform.rotation.y = eigen_quat.y();
-    // t.transform.rotation.z = eigen_quat.z();
-    // t.transform.rotation.w = eigen_quat.w();
-
-    // // Send the transformation
-    // tf_broadcaster_->sendTransform(t);
-    // std::cout << "transform sent!!!!!!" << std::endl;
     
 }
 

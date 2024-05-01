@@ -3,11 +3,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        # Node(
-        #     package='cpp_vo',
-        #     executable='vo_node',
-        #     name='visual_odometry_node'
-        # ),
+        Node(
+            package='cpp_vo',
+            executable='vo_node',
+            name='visual_odometry_node'
+        ),
         Node(
             package='py_vo',
             executable='fake_origin_frame.py',
@@ -65,28 +65,28 @@ def generate_launch_description():
                 {"odom0_relative": True},
                 # {"imu0_differential": True},
                 # {"odom0_differential": True},
-                {"imu0_remove_gravitational_acceleration": True},
+                {"imu0_remove_gravitational_acceleration": False},
                 {"print_diagnostics": True},
                 {'base_link_frame': 'camera_imu_optical_frame'},
                 {'odom_frame': 'origin'},
                 {'world_frame': 'origin'},
                 {'dynamic_process_noise_covariance': True},
                 {'process_noise_covariance':
-                    [0.0, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0.0,  0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0.0,  0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0.0,  0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0.0,  0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0.0,  0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0.0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0.0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0.0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    1.01,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    1.01,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    1.01,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    1.01,    0,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    1.01,    0,
-                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    1.01]
+                    [0.01, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0.01,  0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0.01,  0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0.01,  0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0.01,  0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0.01,  0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0.01,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0.01,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0.01,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    1.0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    1.0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    1.0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    1.0,    0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    1.0,    0,
+                    0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    1.0]
                 }
             ]
         )

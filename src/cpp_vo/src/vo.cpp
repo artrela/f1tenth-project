@@ -40,7 +40,7 @@ VO::VO(): rclcpp::Node("vo_node")
     tf_broadcaster_ =
       std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-    curr_pose.header.frame_id = "map";
+    curr_pose.header.frame_id = "odom";
     curr_pose.child_frame_id = "camera_imu_optical_frame";
 
     // initialize tf values
@@ -108,10 +108,11 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
 
     // get transforms
     cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr, color_img);
-    global_tf = global_tf * relative_tf;
+    // global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    publish_position(global_tf);
+    // publish_position(global_tf);
+    publish_position(relative_tf);
 
     // update prev images
     *color_prev_ptr = color_img;

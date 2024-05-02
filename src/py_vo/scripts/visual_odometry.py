@@ -39,7 +39,6 @@ class VisualOdometry(Node):
         self.load_config('vo_config.yaml')
 
         self.global_transform = np.eye(4)
-        self.global_transform[:, -1] = 1
 
         self.color_prev = None
         self.depth_prev = None
@@ -85,7 +84,7 @@ class VisualOdometry(Node):
             self.color_prev = color_img
             self.depth_prev = depth_img
             self.kp_prev = cv.goodFeaturesToTrack(self.color_prev, mask = None, 
-                                            maxCorners = 1000, qualityLevel = 0.01, 
+                                            maxCorners = 2000, qualityLevel = 0.05, 
                                             minDistance = 8, blockSize = 21, 
                                             useHarrisDetector = False, k = 0.05)
             return
@@ -97,16 +96,16 @@ class VisualOdometry(Node):
         # Select only good points
         kp = kp[status == 1]
         self.kp_prev = self.kp_prev[status == 1]
-        # good_err = err[status == 1]
+        good_err = err[status == 1]
 
         # Determine error threshold (you may adjust this value)
-        # error_threshold = 10.0
+        error_threshold = 10.0
 
         # Filter points based on error threshold
-        # filtered_indices = np.where(good_err < error_threshold)[0]
+        filtered_indices = np.where(good_err < error_threshold)[0]
 
-        # kp = good_kp[filtered_indices]
-        # self.kp_prev = good_kp_prev[filtered_indices]
+        kp = kp[filtered_indices]
+        self.kp_prev = self.kp_prev[filtered_indices]
 
         # Define the conditions for filteri
         condition_w = (kp[:, 0] < self.depth_prev.shape[0]-1) & (self.kp_prev[:, 0] < self.depth_prev.shape[0]-1)
@@ -123,7 +122,7 @@ class VisualOdometry(Node):
 
         # print(np.where((kp[:, 0] > self.depth_prev.shape[0]-1) & (kp[:, 1] > self.depth_prev.shape[0]-1))[0].shape)
 
-        if len(kp) < 25:
+        if len(kp) < 150:
             self.color_prev = color_img.copy()
             self.depth_prev = depth_img.copy()
             self.kp_prev = cv.goodFeaturesToTrack(self.color_prev, mask = None, 
@@ -287,9 +286,9 @@ class VisualOdometry(Node):
         pose.id = len(self.poses_markers.markers) + 1
         pose.header.frame_id = "origin"
         pose.type = 0
-        pose.pose.position.x = trans[0]
-        pose.pose.position.y = trans[1]
-        pose.pose.position.z = trans[2]
+        pose.pose.position.x = trans[2]#trans[0]
+        pose.pose.position.y = trans[0]#trans[1]
+        # pose.pose.position.z = trans[2]#trans[2]
         pose.pose.orientation.x = quat[0]
         pose.pose.orientation.y = quat[1]
         pose.pose.orientation.z = quat[2]

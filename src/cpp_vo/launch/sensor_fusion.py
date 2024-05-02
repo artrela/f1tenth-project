@@ -8,9 +8,9 @@ def generate_launch_description():
             executable='vo_node',
             name='visual_odometry_node',
             parameters=[
-                {"cov_x": 0.2},
-                {"cov_y": 0.2},
-                {"cov_yaw": 0.4}
+                {"cov_x": 0.5},
+                {"cov_y": 0.5},
+                {"cov_yaw": 0.7}
             ]
         ),
         # Node(
@@ -27,18 +27,23 @@ def generate_launch_description():
         # ),
         Node(
             package='py_vo',
+            executable='republish_vicon.py',
+            name='republish_vicon_node'
+        ),
+        Node(
+            package='py_vo',
             executable='fake_origin_frame.py',
-            name='visual_odometry_node'
+            name='fake_origin_frame_node'
         ),
         Node(
             package='py_vo',
             executable='frame_link.py',
-            name='visual_odometry_node'
+            name='frame_link_node'
         ),
         Node(
             package='py_vo',
             executable='transform_imu_axes.py',
-            name='visual_odometry_node'
+            name='transform_imu_axes_node'
         ),
         # Node(
         #     package='realsense2_camera',

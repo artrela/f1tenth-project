@@ -47,25 +47,25 @@ VO::VO(): rclcpp::Node("vo_node")
     global_tf = cv::Mat::eye(4, 4, CV_64F);
 
     // set intrinsics values
-    // intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
-    //                                         0, 605.257568359375  , 239.6647491455078,
-    //                                         0.0, 0.0, 1.0);
-    intrinsics = (cv::Mat_<double>(3, 3) <<  905.43359375, 0, 639.9384765625,
-                                            0, 905.3507080078125, 356.8575134277344,
+    intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
+                                            0, 605.257568359375  , 239.6647491455078,
                                             0.0, 0.0, 1.0);
+    // intrinsics = (cv::Mat_<double>(3, 3) <<  905.43359375, 0, 639.9384765625,
+    //                                         0, 905.3507080078125, 356.8575134277344,
+    //                                         0.0, 0.0, 1.0);
     // intrinsics = (cv::Mat_<double>(3, 3) <<  426.876, 0, 426.593,
     //                                         0, 426.593, 238.275,
     //                                         0.0, 0.0, 1.0);
     
     // TODO: turn to rosparam
-    feature = "sift";
+    feature = "orb";
 
     if( feature == "sift" ){
         
         feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 1.6);
     }
     else{
-        feature_extractor = cv::ORB::create(1500, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
+        feature_extractor = cv::ORB::create(2000, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
     }
 
     // visualizing pose chain

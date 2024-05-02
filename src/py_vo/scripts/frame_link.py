@@ -17,7 +17,7 @@ class FixedFrameBroadcaster(Node):
 
         # Fill in the header information
         t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'origin'
+        t.header.frame_id = 'map'
         t.child_frame_id = 'odom'
 
         # Specify the transform details

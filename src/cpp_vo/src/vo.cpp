@@ -47,25 +47,24 @@ VO::VO(): rclcpp::Node("vo_node")
     global_tf = cv::Mat::eye(4, 4, CV_64F);
 
     // set intrinsics values
-    intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
-                                            0, 605.257568359375  , 239.6647491455078,
-                                            0.0, 0.0, 1.0);
-    // intrinsics = (cv::Mat_<double>(3, 3) <<  905.43359375, 0, 639.9384765625,
-    //                                         0, 905.3507080078125, 356.8575134277344,
+    // intrinsics = (cv::Mat_<double>(3, 3) <<  606.328369140625, 0, 322.6350402832031,
+    //                                         0, 605.257568359375  , 239.6647491455078,
     //                                         0.0, 0.0, 1.0);
+    intrinsics = (cv::Mat_<double>(3, 3) <<  905.43359375, 0, 639.9384765625,
+                                            0, 905.3507080078125, 356.8575134277344,
+                                            0.0, 0.0, 1.0);
     // intrinsics = (cv::Mat_<double>(3, 3) <<  426.876, 0, 426.593,
     //                                         0, 426.593, 238.275,
-    //                                         0.0, 0.0, 1.0);
+    //                                         0.0, 0.0, 1.0); 
     
     // TODO: turn to rosparam
-    feature = "orb";
+    feature = "sift";
 
     if( feature == "sift" ){
-        
-        feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 1.6);
+        feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 2.0);
     }
     else{
-        feature_extractor = cv::ORB::create(2000, 1.2f, 8, 31, 0, 2, cv::ORB::HARRIS_SCORE, 31, 20);
+        feature_extractor = cv::ORB::create(1000, 1.3, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
     }
 
     // visualizing pose chain
@@ -105,15 +104,14 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
     // get matches
     vector<cv::DMatch> good_matches;
     get_matches(desc_prev, desc, good_matches);
-    // draw_matches(*color_prev_ptr, color_img, kps_prev, kps, good_matches);
 
     // get transforms
     cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr, color_img);
-    // global_tf = global_tf * relative_tf;
+    global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    // publish_position(global_tf);
-    publish_position(relative_tf);
+    publish_position(global_tf);
+    // publish_position(relative_tf);
 
     // update prev images
     *color_prev_ptr = color_img;
@@ -129,7 +127,6 @@ cv::Mat VO::convert_image(const sensor_msgs::msg::Image::ConstSharedPtr& image_m
 
     if( depth ){
         cv_ptr = cv_bridge::toCvCopy(image_msg, "16UC1");
-        // cv::GaussianBlur(cv_ptr->image, img, cv::Size(7, 7), 2, 2, cv::BORDER_CONSTANT);
     }
     else{
         cv_ptr = cv_bridge::toCvCopy(image_msg, "bgr8");
@@ -215,7 +212,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
 
     }
 
-    display_tracking(color_prev, kp_tprev_idx, kp_t_idx, 100);
+    display_tracking(color_prev, kp_tprev_idx, kp_t_idx, 30);
 
     if( world_pts.size() < 4 ){
         RCLCPP_INFO(rclcpp::get_logger("VO"), "Less than 4 matches! Cannot attempt PnP");
@@ -240,7 +237,7 @@ cv::Mat VO::motion_estimate(const vector<cv::KeyPoint>& kp_tprev, const vector<c
     cv::Mat rvec, tvec;
     // bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec);
     bool success = cv::solvePnPRansac(world_pts, kp_t_idx, intrinsics, cv::noArray(), rvec, tvec, false,
-                                        300, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
+                                        350, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
 
     double norm = cv::norm(tvec, cv::NORM_L2, cv::noArray());
 

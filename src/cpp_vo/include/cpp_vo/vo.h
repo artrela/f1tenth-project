@@ -62,7 +62,7 @@ class VO : public rclcpp::Node {
         visualization_msgs::msg::MarkerArray pose_markers;
         nav_msgs::msg::Path traj_path;
         nav_msgs::msg::Odometry curr_pose;
-        std::string feature;    
+        std::string feature;
         double cov_x;
         double cov_y;
         double cov_yaw;

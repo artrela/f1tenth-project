@@ -33,7 +33,7 @@ class PoseModifier(Node):
         msg.pose.orientation.w = new_quat[3]
 
         self.publisher.publish(msg)
-        self.get_logger().info(f'Published PoseStamped with frame_id {msg.header.frame_id}')
+        # self.get_logger().info(f'Published PoseStamped with frame_id {msg.header.frame_id}')
 
 def main(args=None):
     rclpy.init(args=args)

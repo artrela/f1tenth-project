@@ -18,7 +18,7 @@ class FixedFrameBroadcaster(Node):
         # Fill in the header information
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'origin'
-        t.child_frame_id = 'camera_imu_optical_frame'
+        t.child_frame_id = 'odom'
 
         # Specify the transform details
         t.transform.translation.x = 0.0  # Change these values as needed

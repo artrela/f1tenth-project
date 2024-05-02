@@ -13,18 +13,18 @@ def generate_launch_description():
                 {"cov_yaw": 0.4}
             ]
         ),
-        Node(
-            package='imu_filter_madgwick',
-            executable='imu_filter_madgwick_node',
-            name='madwick_filter_relay',
-            parameters=[
-                {"use_mag": False},
-                {"remove_gravity_vector": True},
-            ],
-            remappings=[
-                ('imu/data_raw', '/camera/camera/imu')
-            ]
-        ),
+        # Node(
+        #     package='imu_filter_madgwick',
+        #     executable='imu_filter_madgwick_node',
+        #     name='madwick_filter_relay',
+        #     parameters=[
+        #         {"use_mag": False},
+        #         {"remove_gravity_vector": True},
+        #     ],
+        #     remappings=[
+        #         ('imu/data_raw', '/camera/camera/imu')
+        #     ]
+        # ),
         Node(
             package='py_vo',
             executable='fake_origin_frame.py',
@@ -92,7 +92,7 @@ def generate_launch_description():
                 {"print_diagnostics": True},
                 {'base_link_frame': 'camera_imu_optical_frame'},
                 {'odom_frame': 'odom'},
-                {'world_frame': 'odom'},
+                {'world_frame': 'origin'},
                 {'dynamic_process_noise_covariance': True},
                 {'process_noise_covariance':
                     [0.01, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,

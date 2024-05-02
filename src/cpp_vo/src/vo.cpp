@@ -29,9 +29,9 @@ VO::VO(): rclcpp::Node("vo_node")
     traj_viz_pub = this->create_publisher<nav_msgs::msg::Path>("/traj_viz", 10);
     pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("/visual_odometry/pose", 10);
 
-    this->declare_parameter("cov_x", 0.2);
-    this->declare_parameter("cov_y", 0.2);
-    this->declare_parameter("cov_yaw", 0.4);
+    this->declare_parameter("cov_x", 0.4);
+    this->declare_parameter("cov_y", 0.4);
+    this->declare_parameter("cov_yaw", 0.8);
 
     cov_x = this->get_parameter("cov_x").as_double();
     cov_y = this->get_parameter("cov_y").as_double();
@@ -40,7 +40,7 @@ VO::VO(): rclcpp::Node("vo_node")
     tf_broadcaster_ =
       std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-    curr_pose.header.frame_id = "map";
+    curr_pose.header.frame_id = "odom";
     curr_pose.child_frame_id = "camera_imu_optical_frame";
 
     // initialize tf values
@@ -61,6 +61,7 @@ VO::VO(): rclcpp::Node("vo_node")
     feature = "sift";
 
     if( feature == "sift" ){
+        
         feature_extractor = cv::SIFT::create(2000, 3, 0.04, 10, 1.6);
     }
     else{
@@ -108,10 +109,11 @@ void VO::visual_odom_callback(const sensor_msgs::msg::Image::ConstSharedPtr& dep
 
     // get transforms
     cv::Mat relative_tf = motion_estimate(kps_prev, kps, good_matches, *depth_prev_ptr, color_img);
-    global_tf = global_tf * relative_tf;
+    // global_tf = global_tf * relative_tf;
 
     // visualize trajectory
-    publish_position(global_tf);
+    // publish_position(global_tf);
+    publish_position(relative_tf);
 
     // update prev images
     *color_prev_ptr = color_img;
@@ -312,8 +314,8 @@ void VO::publish_position(cv::Mat tf){
     pose_marker.id = pose_markers.markers.size()+1;
     pose_marker.type = 0;
     // pose_marker.pose.position.x = eigen_tf.translation().x();
-    pose_marker.pose.position.x = eigen_tf.translation().z();
-    pose_marker.pose.position.y = eigen_tf.translation().x();
+    pose_marker.pose.position.x = -eigen_tf.translation().z();
+    pose_marker.pose.position.y =  eigen_tf.translation().x();
     // pose_marker.pose.position.z = eigen_tf.translation()z.();
     // pose_marker.pose.position.z = eigen_tf.translation().y();
     pose_marker.pose.orientation.x = eigen_quat.x();
@@ -329,15 +331,15 @@ void VO::publish_position(cv::Mat tf){
 
     auto traj_marker = geometry_msgs::msg::PoseStamped();
     // traj_marker.pose.position.x = eigen_tf.translation().x();
-    traj_marker.pose.position.x = eigen_tf.translation().z();
-    traj_marker.pose.position.y = eigen_tf.translation().x();
+    traj_marker.pose.position.x = -eigen_tf.translation().z();
+    traj_marker.pose.position.y =  eigen_tf.translation().x();
     // traj_marker.pose.position.z = eigen_tf.translation().z();
     // traj_marker.pose.position.z = eigen_tf.translation().y();
     traj_path.poses.push_back(traj_marker);
 
     curr_pose.header.stamp = this->get_clock()->now();
-    curr_pose.pose.pose.position.x = eigen_tf.translation().z();
-    curr_pose.pose.pose.position.y = eigen_tf.translation().x();
+    curr_pose.pose.pose.position.x = -eigen_tf.translation().z();
+    curr_pose.pose.pose.position.y =  eigen_tf.translation().x();
     curr_pose.pose.pose.orientation.x = eigen_quat.x();
     curr_pose.pose.pose.orientation.y = eigen_quat.y();
     curr_pose.pose.pose.orientation.z = eigen_quat.z();

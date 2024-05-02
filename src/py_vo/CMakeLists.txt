@@ -39,6 +39,8 @@ install(PROGRAMS
   scripts/visual_odometry.py
   scripts/fake_origin_frame.py
   scripts/frame_link.py
+  scripts/republish_vicon.py
+  scripts/plot_trajectories.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

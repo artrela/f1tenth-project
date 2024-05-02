@@ -3,16 +3,16 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        # Node(
-        #     package='cpp_vo',
-        #     executable='vo_node',
-        #     name='visual_odometry_node',
-        #     parameters=[
-        #         {"cov_x": 0.2},
-        #         {"cov_y": 0.2},
-        #         {"cov_yaw": 0.4}
-        #     ]
-        # ),
+        Node(
+            package='cpp_vo',
+            executable='vo_node',
+            name='visual_odometry_node',
+            parameters=[
+                {"cov_x": 0.2},
+                {"cov_y": 0.2},
+                {"cov_yaw": 0.2}
+            ]
+        ),
         # Node(
         #     package='imu_filter_madgwick',
         #     executable='imu_filter_madgwick_node',
@@ -28,37 +28,42 @@ def generate_launch_description():
         Node(
             package='py_vo',
             executable='fake_origin_frame.py',
-            name='visual_odometry_node'
+            name='fake_origin_frame_node'
         ),
         Node(
             package='py_vo',
             executable='frame_link.py',
-            name='visual_odometry_node'
+            name='frame_link_node'
         ),
         Node(
             package='py_vo',
             executable='transform_imu_axes.py',
-            name='visual_odometry_node'
+            name='transform_imu_axes_node'
         ),
-        # Node(
-        #     package='realsense2_camera',
-        #     namespace='camera', 
-        #     executable='realsense2_camera_node',
-        #     name='realsense_camera',
-        #     parameters=[
-        #         {'pointcloud.enable': True},
-        #         {'enable_gyro': True},
-        #         {'enable_accel': True},
-        #         {'align_depth.enable': True},
-        #         {'unite_imu_method': 2},
-        #         {'rgb_camera.enable_auto_exposure': False},
-        #         # enables higher fps https://support.intelrealsense.com/hc/en-us/community/posts/360050831934-Higher-RGB-and-Depth-FPS
-        #         # {'rgb_camera.color_profile': '848x480'},
-        #         # {"depth_fps": 60},
-        #         # {"color_fps": 60},
-        #         # https://github.com/IntelRealSense/realsense-ros/issues/599
-        #     ]
-        # ),
+        Node(
+            package='py_vo',
+            executable='republish_vicon.py',
+            name='republish_vicon_node'
+        ),
+        Node(
+            package='realsense2_camera',
+            namespace='camera', 
+            executable='realsense2_camera_node',
+            name='realsense_camera',
+            parameters=[
+                {'pointcloud.enable': True},
+                {'enable_gyro': True},
+                {'enable_accel': True},
+                {'align_depth.enable': True},
+                {'unite_imu_method': 2},
+                {'rgb_camera.enable_auto_exposure': False},
+                # enables higher fps https://support.intelrealsense.com/hc/en-us/community/posts/360050831934-Higher-RGB-and-Depth-FPS
+                # {'rgb_camera.color_profile': '848x480'},
+                # {"depth_fps": 60},
+                # {"color_fps": 60},
+                # https://github.com/IntelRealSense/realsense-ros/issues/599
+            ]
+        ),
         Node(
             package='robot_localization',
             executable='ekf_node',
@@ -95,12 +100,12 @@ def generate_launch_description():
                 {'world_frame': 'origin'},
                 {'dynamic_process_noise_covariance': True},
                 {'process_noise_covariance':
-                    [0.01, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0.01,  0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0.01,  0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0.01,  0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0.01,  0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-                    0,    0,    0,    0,    0,    0.01,  0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    [0.1, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0.1,  0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0.1,  0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0.1,  0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0.1,  0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                    0,    0,    0,    0,    0,    0.1,  0,     0,     0,    0,    0,    0,    0,    0,    0,
                     0,    0,    0,    0,    0,    0,    0.01,     0,     0,    0,    0,    0,    0,    0,    0,
                     0,    0,    0,    0,    0,    0,    0,     0.01,     0,    0,    0,    0,    0,    0,    0,
                     0,    0,    0,    0,    0,    0,    0,     0,     0.01,    0,    0,    0,    0,    0,    0,
